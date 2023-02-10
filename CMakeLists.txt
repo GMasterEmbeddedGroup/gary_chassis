@@ -21,24 +21,26 @@ find_package(rclcpp REQUIRED)
 find_package(gary_serial REQUIRED)
 find_package(gary_common REQUIRED)
 find_package(gary_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(chassis src/chassis_task.cpp)
+add_executable(chassis_task src/chassis_task.cpp)
 
-target_include_directories(chassis PRIVATE include)
+target_include_directories(chassis_task PRIVATE include)
 
 ament_target_dependencies(
-        chassis
+        chassis_task
         rclcpp
         gary_common
         gary_serial
         gary_msgs
+        std_msgs
 )
 
 install(TARGETS
-        chassis
+        chassis_task
         DESTINATION lib/${PROJECT_NAME}
         )
 

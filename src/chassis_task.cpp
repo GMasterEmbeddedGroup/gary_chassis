@@ -1,7 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "gary_msgs/msg/dr16_receiver.hpp"
-#include "gary_controller/pid_controller.hpp"
-#include "gary_controller/mecanum_chassis_controller.hpp"
+#include "std_msgs/msg/float64.hpp"
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -12,12 +11,13 @@ class ChassisTask : public rclcpp::Node
 {
 public:
     ChassisTask() : Node("chassis_task"){
-         rc_sub = this->create_subscription<gary_msgs::msg::DR16Receiver>("/Remote_control",rclcpp::SystemDefaultsQoS(),std::bind(&ChassisTask::rc_callback,this,std::placeholders::_1));
-         pub1_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_rb_controller/cmd",rclcpp::SystemDefaultsQoS());
-         pub2_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_rf_controller/cmd",rclcpp::SystemDefaultsQoS());
-         pub3_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_lb_controller/cmd",rclcpp::SystemDefaultsQoS());
-         pub4_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_lf_controller/cmd",rclcpp::SystemDefaultsQoS());
-        auto timer = this->create_wall_timer(100ms,std::bind(&ChassisTask::time_callback,this));
+
+        rc_sub = this->create_subscription<gary_msgs::msg::DR16Receiver>("/remote_control",rclcpp::SystemDefaultsQoS(),std::bind(&ChassisTask::rc_callback,this,std::placeholders::_1));
+        pub1_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_rb_pid/cmd",rclcpp::SystemDefaultsQoS());
+        pub2_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_rf_pid/cmd",rclcpp::SystemDefaultsQoS());
+        pub3_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_lb_pid/cmd",rclcpp::SystemDefaultsQoS());
+        pub4_ = this->create_publisher<std_msgs::msg::Float64>("/chassis_lf_pid/cmd",rclcpp::SystemDefaultsQoS());
+        timer = this->create_wall_timer(10ms,std::bind(&ChassisTask::time_callback,this));
     }
 private:
     void rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg)
@@ -65,6 +65,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub2_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub3_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub4_;
+    rclcpp::TimerBase::SharedPtr timer;
 };
 
 int main(int argc, char * argv[]){
