@@ -36,8 +36,7 @@ private:
         chassis_speed.insert(std::make_pair("vy",twist.linear.y));
         chassis_speed.insert(std::make_pair("az",twist.angular.z));
 
-        geometry_msgs::msg::Twist data;
-        twist_pub -> publish(data);
+        twist_pub -> publish(twist);
         
     }
     /*void time_callback()
