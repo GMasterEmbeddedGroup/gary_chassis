@@ -28,12 +28,12 @@ find_package(geometry_msgs REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 
-add_executable(chassis_solver src/chassis_solver.cpp src/utils/mecanum_kinematics.cpp)
+add_executable(mecanum_chassis_solver src/mecanum_chassis_solver.cpp src/utils/mecanum_kinematics.cpp)
 
-target_include_directories(chassis_solver PRIVATE include)
+target_include_directories(mecanum_chassis_solver PRIVATE include)
 
 ament_target_dependencies(
-        chassis_solver
+        mecanum_chassis_solver
         rclcpp
         rclcpp_components
         rclcpp_lifecycle
@@ -42,13 +42,13 @@ ament_target_dependencies(
 )
 
 
-add_library(chassis_solver_lib SHARED
-        src/chassis_solver.cpp src/utils/mecanum_kinematics.cpp)
+add_library(mecanum_chassis_solver_lib SHARED
+        src/mecanum_chassis_solver.cpp src/utils/mecanum_kinematics.cpp)
 
-target_include_directories(chassis_solver_lib PRIVATE include)
+target_include_directories(mecanum_chassis_solver_lib PRIVATE include)
 
 ament_target_dependencies(
-        chassis_solver_lib
+        mecanum_chassis_solver_lib
         rclcpp
         rclcpp_components
         rclcpp_lifecycle
@@ -56,7 +56,7 @@ ament_target_dependencies(
         geometry_msgs
 )
 
-rclcpp_components_register_nodes(chassis_solver_lib "gary_chassis::ChassisSolver")
+rclcpp_components_register_nodes(mecanum_chassis_solver_lib "gary_chassis::MecanumChassisSolver")
 
 
 add_executable(mode_changer src/mode_changer.cpp)
@@ -82,11 +82,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS chassis_solver mode_changer
+install(TARGETS mecanum_chassis_solver mode_changer
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS chassis_solver_lib
+install(TARGETS mecanum_chassis_solver_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)

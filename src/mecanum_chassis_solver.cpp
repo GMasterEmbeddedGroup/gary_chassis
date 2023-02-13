@@ -1,10 +1,10 @@
-#include "gary_chsssis/chassis_solver.hpp"
+#include "gary_chsssis/mecanum_chassis_solver.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 using namespace gary_chassis;
 
-ChassisSolver::ChassisSolver(const rclcpp::NodeOptions &options) :
-        rclcpp_lifecycle::LifecycleNode("chassis_solver", options), a(0), b(0), r(0) {
+MecanumChassisSolver::MecanumChassisSolver(const rclcpp::NodeOptions &options) :
+        rclcpp_lifecycle::LifecycleNode("mecanum_chassis_solver", options), a(0), b(0), r(0) {
     //declare param
     this->declare_parameter("cmd_topic", "~/cmd_vel");
     this->declare_parameter("output_lf_topic");
@@ -16,7 +16,7 @@ ChassisSolver::ChassisSolver(const rclcpp::NodeOptions &options) :
     this->declare_parameter("r");
 }
 
-CallbackReturn ChassisSolver::on_configure(const rclcpp_lifecycle::State &previous_state) {
+CallbackReturn MecanumChassisSolver::on_configure(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
     //get cmd_topic
@@ -27,7 +27,7 @@ CallbackReturn ChassisSolver::on_configure(const rclcpp_lifecycle::State &previo
     this->cmd_topic = this->get_parameter("cmd_topic").as_string();
     this->cmd_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
             this->cmd_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisSolver::cmd_callback, this, std::placeholders::_1));
+            std::bind(&MecanumChassisSolver::cmd_callback, this, std::placeholders::_1));
 
     //get output_lf_topic
     if (this->get_parameter("output_lf_topic").get_type() != rclcpp::PARAMETER_STRING) {
@@ -92,7 +92,7 @@ CallbackReturn ChassisSolver::on_configure(const rclcpp_lifecycle::State &previo
     return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn ChassisSolver::on_cleanup(const rclcpp_lifecycle::State &previous_state) {
+CallbackReturn MecanumChassisSolver::on_cleanup(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
     this->cmd_subscriber.reset();
@@ -106,7 +106,7 @@ CallbackReturn ChassisSolver::on_cleanup(const rclcpp_lifecycle::State &previous
     return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn ChassisSolver::on_activate(const rclcpp_lifecycle::State &previous_state) {
+CallbackReturn MecanumChassisSolver::on_activate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
     this->lf_publisher->on_activate();
@@ -118,7 +118,7 @@ CallbackReturn ChassisSolver::on_activate(const rclcpp_lifecycle::State &previou
     return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn ChassisSolver::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
+CallbackReturn MecanumChassisSolver::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
     this->lf_publisher->on_deactivate();
@@ -130,7 +130,7 @@ CallbackReturn ChassisSolver::on_deactivate(const rclcpp_lifecycle::State &previ
     return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn ChassisSolver::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
+CallbackReturn MecanumChassisSolver::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
     if (this->cmd_subscriber.get() != nullptr) this->cmd_subscriber.reset();
@@ -145,7 +145,7 @@ CallbackReturn ChassisSolver::on_shutdown(const rclcpp_lifecycle::State &previou
     return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn ChassisSolver::on_error(const rclcpp_lifecycle::State &previous_state) {
+CallbackReturn MecanumChassisSolver::on_error(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
     if (this->cmd_subscriber.get() != nullptr) this->cmd_subscriber.reset();
@@ -159,7 +159,7 @@ CallbackReturn ChassisSolver::on_error(const rclcpp_lifecycle::State &previous_s
     return CallbackReturn::SUCCESS;
 }
 
-void ChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
+void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     std::map<std::string, double> chassis_speed;
     std::map<std::string, double> wheel_speed;
 
@@ -187,9 +187,9 @@ int main(int argc, char const *const argv[]) {
 
     rclcpp::executors::SingleThreadedExecutor exe;
 
-    std::shared_ptr<ChassisSolver> chassis_solver = std::make_shared<ChassisSolver>(rclcpp::NodeOptions());
+    std::shared_ptr<MecanumChassisSolver> mecanum_chassis_solver = std::make_shared<MecanumChassisSolver>(rclcpp::NodeOptions());
 
-    exe.add_node(chassis_solver->get_node_base_interface());
+    exe.add_node(mecanum_chassis_solver->get_node_base_interface());
 
     exe.spin();
 
@@ -198,4 +198,4 @@ int main(int argc, char const *const argv[]) {
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(gary_chassis::ChassisSolver)
+RCLCPP_COMPONENTS_REGISTER_NODE(gary_chassis::MecanumChassisSolver)

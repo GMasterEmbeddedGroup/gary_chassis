@@ -9,10 +9,10 @@ using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface
 
 namespace gary_chassis {
 
-    class ChassisSolver : public rclcpp_lifecycle::LifecycleNode {
+    class MecanumChassisSolver : public rclcpp_lifecycle::LifecycleNode {
 
     public:
-        explicit ChassisSolver(const rclcpp::NodeOptions & options);
+        explicit MecanumChassisSolver(const rclcpp::NodeOptions & options);
 
     private:
         CallbackReturn on_configure(const rclcpp_lifecycle::State & previous_state) override;
