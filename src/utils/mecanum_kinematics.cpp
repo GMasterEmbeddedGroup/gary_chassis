@@ -34,10 +34,10 @@ std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<st
     double vy = chassis_speed.at("vy");
     double az = chassis_speed.at("az");
 
-    double rf = (- vx - vy - az * (a + b)) / this->r;
-    double lf = (  vx - vy - az * (a + b)) / this->r;
-    double lb = (  vx + vy - az * (a + b)) / this->r;
-    double rb = (- vx + vy - az * (a + b)) / this->r;
+    double rf = (+ vx - vy + az * (a + b)) / this->r;
+    double lf = (+ vx + vy + az * (a + b)) / this->r;
+    double lb = (- vx + vy + az * (a + b)) / this->r;
+    double rb = (- vx - vy + az * (a + b)) / this->r;
 
     wheel_speed.insert(std::make_pair("right_front", rf));
     wheel_speed.insert(std::make_pair("left_front", lf));
