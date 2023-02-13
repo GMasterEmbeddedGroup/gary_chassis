@@ -18,31 +18,58 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(gary_serial REQUIRED)
-find_package(gary_common REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
 find_package(gary_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(chassis_task src/chassis_task.cpp)
 
-target_include_directories(chassis_task PRIVATE include)
+add_executable(chassis_solver src/chassis_solver.cpp src/utils/mecanum_kinematics.cpp)
+
+target_include_directories(chassis_solver PRIVATE include)
 
 ament_target_dependencies(
-        chassis_task
+        chassis_solver
         rclcpp
-        gary_common
-        gary_serial
-        gary_msgs
+        rclcpp_components
+        rclcpp_lifecycle
         std_msgs
+        geometry_msgs
 )
 
-install(TARGETS
-        chassis_task
-        DESTINATION lib/${PROJECT_NAME}
-        )
+
+add_library(chassis_solver_lib SHARED
+        src/chassis_solver.cpp src/utils/mecanum_kinematics.cpp)
+
+target_include_directories(chassis_solver_lib PRIVATE include)
+
+ament_target_dependencies(
+        chassis_solver_lib
+        rclcpp
+        rclcpp_components
+        rclcpp_lifecycle
+        std_msgs
+        geometry_msgs
+)
+
+rclcpp_components_register_nodes(chassis_solver_lib "gary_chassis::ChassisSolver")
+
+
+add_executable(mode_changer src/mode_changer.cpp)
+
+target_include_directories(mode_changer PRIVATE include)
+
+ament_target_dependencies(
+        mode_changer
+        rclcpp
+        gary_msgs
+        geometry_msgs
+)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -54,5 +81,23 @@ if(BUILD_TESTING)
   #set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+install(TARGETS chassis_solver mode_changer
+        DESTINATION lib/${PROJECT_NAME}
+        )
+
+install(TARGETS chassis_solver_lib
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
+
+ament_export_dependencies(
+        rclcpp
+        rclcpp_components
+        rclcpp_lifecycle
+        gary_msgs
+        std_msgs
+        geometry_msgs
+)
 
 ament_package()
