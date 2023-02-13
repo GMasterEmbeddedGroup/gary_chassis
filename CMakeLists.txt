@@ -23,6 +23,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(gary_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -39,6 +40,7 @@ ament_target_dependencies(
         rclcpp_lifecycle
         std_msgs
         geometry_msgs
+        diagnostic_msgs
 )
 
 
@@ -54,6 +56,7 @@ ament_target_dependencies(
         rclcpp_lifecycle
         std_msgs
         geometry_msgs
+        diagnostic_msgs
 )
 
 rclcpp_components_register_nodes(mecanum_chassis_solver_lib "gary_chassis::MecanumChassisSolver")
@@ -98,6 +101,7 @@ ament_export_dependencies(
         gary_msgs
         std_msgs
         geometry_msgs
+        diagnostic_msgs
 )
 
 ament_package()
