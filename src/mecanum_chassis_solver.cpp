@@ -3,7 +3,7 @@
 using namespace gary_chassis;
 
 MecanumChassisSolver::MecanumChassisSolver(const rclcpp::NodeOptions &options) :
-        rclcpp_lifecycle::LifecycleNode("chassis_solver", options), a(0), b(0), r(0) {
+        rclcpp_lifecycle::LifecycleNode("mecanum_chassis_solver", options), a(0), b(0), r(0) {
     //declare param
     this->declare_parameter("cmd_topic", "~/cmd_vel");
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
