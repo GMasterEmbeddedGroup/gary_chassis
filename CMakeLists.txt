@@ -62,12 +62,12 @@ ament_target_dependencies(
 rclcpp_components_register_nodes(mecanum_chassis_solver_lib "gary_chassis::MecanumChassisSolver")
 
 
-add_executable(mode_changer src/mode_changer.cpp)
+add_executable(chassis_teleop src/chassis_teleop.cpp)
 
-target_include_directories(mode_changer PRIVATE include)
+target_include_directories(chassis_teleop PRIVATE include)
 
 ament_target_dependencies(
-        mode_changer
+        chassis_teleop
         rclcpp
         diagnostic_msgs
         lifecycle_msgs
@@ -77,12 +77,12 @@ ament_target_dependencies(
         geometry_msgs
 )
 
-add_library(mode_changer_lib SHARED src/mode_changer.cpp)
+add_library(chassis_teleop_lib SHARED src/chassis_teleop.cpp)
 
-target_include_directories(mode_changer_lib PRIVATE include)
+target_include_directories(chassis_teleop_lib PRIVATE include)
 
 ament_target_dependencies(
-        mode_changer_lib
+        chassis_teleop_lib
         rclcpp
         diagnostic_msgs
         lifecycle_msgs
@@ -92,7 +92,8 @@ ament_target_dependencies(
         geometry_msgs
 )
 
-rclcpp_components_register_nodes(mode_changer_lib "gary_chassis::ModeChanger")
+rclcpp_components_register_nodes(chassis_teleop_lib "gary_chassis::ChassisTeleop")
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -104,12 +105,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver mode_changer
+install(TARGETS mecanum_chassis_solver chassis_teleop
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib
-                mode_changer_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
