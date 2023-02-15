@@ -12,7 +12,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("y_max_speed");
-    this->declare_parameter("x_max_max_speed");
+    this->declare_parameter("x_max_speed");
     this->declare_parameter("rotate_max_speed");
 }
 
