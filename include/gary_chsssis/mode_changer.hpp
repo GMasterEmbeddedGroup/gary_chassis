@@ -6,7 +6,7 @@
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-namespace mode_changer {
+namespace gary_chassis {
 class ModeChanger : public rclcpp_lifecycle::LifecycleNode {
     public:
         explicit ModeChanger(const rclcpp::NodeOptions &options);
