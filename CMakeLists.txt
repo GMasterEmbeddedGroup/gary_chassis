@@ -69,10 +69,28 @@ target_include_directories(mode_changer PRIVATE include)
 ament_target_dependencies(
         mode_changer
         rclcpp
+        diagnostic_msgs
+        lifecycle_msgs
+        rclcpp_lifecycle
+        rclcpp_components
         gary_msgs
         geometry_msgs
 )
 
+add_library(mode_changer_lib SHARED src/mode_changer.cpp)
+
+target_include_directories(mode_changer_lib PRIVATE include)
+
+ament_target_dependencies(
+        mode_changer_lib
+        rclcpp
+        diagnostic_msgs
+        lifecycle_msgs
+        rclcpp_lifecycle
+        rclcpp_components
+        gary_msgs
+        geometry_msgs
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -90,6 +108,7 @@ install(TARGETS mecanum_chassis_solver mode_changer
         )
 
 install(TARGETS mecanum_chassis_solver_lib
+                mode_changer_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
