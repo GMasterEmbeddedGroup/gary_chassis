@@ -6,7 +6,7 @@ using namespace gary_chassis;
 
 
 ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecycle::LifecycleNode("chassis_teleop",
-                                                                                               options) {
+                                                                                                   options) {
 
     this->declare_parameter("cmd_topic");
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
@@ -123,6 +123,7 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
 }
 
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
+    if (!this->cmd_publisher->is_activated()) return;
     RC_control = *msg;
     if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
         return;
