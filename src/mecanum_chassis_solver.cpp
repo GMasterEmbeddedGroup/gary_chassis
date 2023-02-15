@@ -213,6 +213,7 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
     chassis_speed.emplace("az", msg->angular.z);
 
     bool lf_online_flag, lb_online_flag, rf_online_flag, rb_online_flag;
+    lf_online_flag = lb_online_flag = rf_online_flag = rb_online_flag = false;
 
     //get offline motor
     for(const auto&i : this->diagnostic_array.status) {
