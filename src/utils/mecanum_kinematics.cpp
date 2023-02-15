@@ -37,10 +37,10 @@ std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<st
     double az = chassis_speed.at("az");
 
     if (wheel_offline == WHEEL_OFFLINE_NONE) {
-        double rf = (+ vx - vy + az * (a + b)) / this->r;
-        double lf = (+ vx + vy + az * (a + b)) / this->r;
-        double lb = (- vx + vy + az * (a + b)) / this->r;
-        double rb = (- vx - vy + az * (a + b)) / this->r;
+        double rf = (- vx - vy + az * (a + b)) / this->r;
+        double lf = (+ vx - vy + az * (a + b)) / this->r;
+        double lb = (+ vx + vy + az * (a + b)) / this->r;
+        double rb = (- vx + vy + az * (a + b)) / this->r;
         wheel_speed.insert(std::make_pair("right_front", rf));
         wheel_speed.insert(std::make_pair("left_front", lf));
         wheel_speed.insert(std::make_pair("left_back", lb));
@@ -48,15 +48,15 @@ std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<st
 
     } else if (wheel_offline == WHEEL_OFFLINE_LF) {
         if (vx != 0 || vy != 0) {
-            if (std::abs(vx) > std::abs(vy)) {
-                double rf = (  vx ) / this->r;
-                double rb = (- vx ) / this->r;
-                wheel_speed.insert(std::make_pair("right_front", rf));
+            if (std::abs(vx) >= std::abs(vy)) {
+                double lb = (+ vx) / this->r;
+                double rb = (- vx) / this->r;
+                wheel_speed.insert(std::make_pair("left_back", lb));
                 wheel_speed.insert(std::make_pair("right_back", rb));
             } else {
-                double lb = (  vy) / this->r;
-                double rb = (- vy) / this->r;
-                wheel_speed.insert(std::make_pair("left_back", lb));
+                double rf = (- vy) / this->r;
+                double rb = (+ vy) / this->r;
+                wheel_speed.insert(std::make_pair("right_front", rf));
                 wheel_speed.insert(std::make_pair("right_back", rb));
             }
         } else {
@@ -68,16 +68,16 @@ std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<st
 
     } else if (wheel_offline == WHEEL_OFFLINE_LB) {
         if (vx != 0 || vy != 0) {
-            if (std::abs(vx) > std::abs(vy)) {
-                double rf = (  vx ) / this->r;
-                double rb = (- vx ) / this->r;
-                wheel_speed.insert(std::make_pair("right_front", rf));
-                wheel_speed.insert(std::make_pair("right_back", rb));
-            } else {
-                double rf = (- vy ) / this->r;
-                double lf = (  vy ) / this->r;
+            if (std::abs(vx) >= std::abs(vy)) {
+                double rf = (- vx) / this->r;
+                double lf = (+ vx) / this->r;
                 wheel_speed.insert(std::make_pair("right_front", rf));
                 wheel_speed.insert(std::make_pair("left_front", lf));
+            } else {
+                double rf = (- vy) / this->r;
+                double rb = (+ vy) / this->r;
+                wheel_speed.insert(std::make_pair("right_front", rf));
+                wheel_speed.insert(std::make_pair("right_back", rb));
             }
         } else {
             double rf = (az * (a + b)) / this->r;
@@ -88,16 +88,16 @@ std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<st
 
     } else if (wheel_offline == WHEEL_OFFLINE_RF) {
         if (vx != 0 || vy != 0) {
-            if (std::abs(vx) > std::abs(vy)) {
-                double lf = (  vx ) / this->r;
-                double lb = (- vx ) / this->r;
-                wheel_speed.insert(std::make_pair("left_front", lf));
-                wheel_speed.insert(std::make_pair("left_back", lb));
-            } else {
-                double lb = (  vy ) / this->r;
-                double rb = (- vy ) / this->r;
+            if (std::abs(vx) >= std::abs(vy)) {
+                double lb = (+ vx) / this->r;
+                double rb = (- vx) / this->r;
                 wheel_speed.insert(std::make_pair("left_back", lb));
                 wheel_speed.insert(std::make_pair("right_back", rb));
+            } else {
+                double lf = (- vy) / this->r;
+                double lb = (+ vy) / this->r;
+                wheel_speed.insert(std::make_pair("left_front", lf));
+                wheel_speed.insert(std::make_pair("left_back", lb));
             }
         } else {
             double lf = (az * (a + b)) / this->r;
@@ -108,16 +108,16 @@ std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<st
 
     } else if (wheel_offline == WHEEL_OFFLINE_RB) {
         if (vx != 0 || vy != 0) {
-            if (std::abs(vx) > std::abs(vy)) {
-                double lf = (+ vx ) / this->r;
-                double lb = (- vx ) / this->r;
-                wheel_speed.insert(std::make_pair("left_front", lf));
-                wheel_speed.insert(std::make_pair("left_back", lb));
-            } else {
-                double rf = (- vy ) / this->r;
-                double lf = (  vy ) / this->r;
+            if (std::abs(vx) >= std::abs(vy)) {
+                double rf = (- vx) / this->r;
+                double lf = (+ vx) / this->r;
                 wheel_speed.insert(std::make_pair("right_front", rf));
                 wheel_speed.insert(std::make_pair("left_front", lf));
+            } else {
+                double lf = (- vy) / this->r;
+                double lb = (+ vy) / this->r;
+                wheel_speed.insert(std::make_pair("left_front", lf));
+                wheel_speed.insert(std::make_pair("left_back", lb));
             }
         } else {
             double rf = (az * (a + b)) / this->r;
