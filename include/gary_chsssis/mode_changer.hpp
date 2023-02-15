@@ -42,8 +42,7 @@ class ModeChanger : public rclcpp_lifecycle::LifecycleNode {
         //subscriber
         rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_subscriber;
         rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
-
-
+        
         //diagnostic message
         diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
         };

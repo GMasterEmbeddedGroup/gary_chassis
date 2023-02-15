@@ -17,6 +17,8 @@ ModeChanger::ModeChanger(const rclcpp::NodeOptions &options) : rclcpp_lifecycle:
 
 CallbackReturn ModeChanger::on_configure(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
+
+
     //get diagnostic_topic
     if (this->get_parameter("diagnostic_topic").get_type() != rclcpp::PARAMETER_STRING) {
         RCLCPP_ERROR(this->get_logger(), "diagnostic_topic type must be string");
@@ -28,8 +30,8 @@ CallbackReturn ModeChanger::on_configure(const rclcpp_lifecycle::State &previous
             std::bind(&ModeChanger::diagnostic_callback, this, std::placeholders::_1));
 
     //get topic_cmd
-    if (this->get_parameter("topic_cmd").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "output_lf_topic type must be string");
+    if (this->get_parameter("cmd_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "cmd_topic type must be string");
         return CallbackReturn::FAILURE;
     }
     this->cmd_topic = this->get_parameter("cmd_topic").as_string();
@@ -155,3 +157,4 @@ int main(int argc, char const *const argv[]) {
 
 #include "rclcpp_components/register_node_macro.hpp"
 
+RCLCPP_COMPONENTS_REGISTER_NODE(gary_chassis::ModeChanger)

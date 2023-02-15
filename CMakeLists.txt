@@ -92,6 +92,7 @@ ament_target_dependencies(
         geometry_msgs
 )
 
+rclcpp_components_register_nodes(mode_changer_lib "gary_chassis::ModeChanger")
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
