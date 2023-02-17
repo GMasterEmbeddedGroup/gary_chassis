@@ -62,7 +62,7 @@ ament_target_dependencies(
 rclcpp_components_register_nodes(mecanum_chassis_solver_lib "gary_chassis::MecanumChassisSolver")
 
 
-add_executable(chassis_teleop src/chassis_teleop.cpp)
+add_executable(chassis_teleop src/chassis_teleop.cpp src/utils/first_order_filter.cpp)
 
 target_include_directories(chassis_teleop PRIVATE include)
 
@@ -77,7 +77,7 @@ ament_target_dependencies(
         geometry_msgs
 )
 
-add_library(chassis_teleop_lib SHARED src/chassis_teleop.cpp)
+add_library(chassis_teleop_lib SHARED src/chassis_teleop.cpp src/utils/first_order_filter.cpp)
 
 target_include_directories(chassis_teleop_lib PRIVATE include)
 

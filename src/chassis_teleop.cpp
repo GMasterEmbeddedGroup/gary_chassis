@@ -2,6 +2,7 @@
 #include "gary_chsssis/chassis_teleop.hpp"
 
 using namespace std::chrono_literals;
+
 using namespace gary_chassis;
 
 
@@ -14,6 +15,8 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("y_max_speed");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("rotate_max_speed");
+    this->declare_parameter("p");
+    this->declare_parameter("frame_period");
 }
 
 CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previous_state) {
@@ -68,7 +71,20 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
     }
     this->rotate_max_speed = this->get_parameter("rotate_max_speed").as_double();
 
+    //get parameter of the filter
+    if (this->get_parameter("p").get_type() != rclcpp::PARAMETER_DOUBLE) {
+        RCLCPP_ERROR(this->get_logger(), "p type must be double");
+        return CallbackReturn::FAILURE;
+    }
+    this->p = this->get_parameter("p").as_double();
+    //get the frame_period
+    if (this->get_parameter("frame_period").get_type() != rclcpp::PARAMETER_DOUBLE) {
+        RCLCPP_ERROR(this->get_logger(), "frame_period type must be double");
+        return CallbackReturn::FAILURE;
+    }
+    this->frame_period = this->get_parameter("frame_period").as_double();
 
+    this->FirstOrderFilter = std::make_shared<gary_chassis::First_orderFilter>(this->p,this->frame_period);
     RCLCPP_INFO(this->get_logger(), "configured");
 
     return CallbackReturn::SUCCESS;
@@ -80,6 +96,7 @@ CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous
     this->cmd_publisher.reset();
     this->diagnostic_subscriber.reset();
     this->rc_subscriber.reset();
+    this->FirstOrderFilter.reset();
     RCLCPP_INFO(this->get_logger(), "cleaning up");
 
     return CallbackReturn::SUCCESS;
@@ -106,7 +123,7 @@ CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previou
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
     if (this->diagnostic_subscriber.get() != nullptr) this->diagnostic_subscriber.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
-
+    if (this->FirstOrderFilter != nullptr) this->FirstOrderFilter.reset();
     RCLCPP_INFO(this->get_logger(), "shutdown");
     return CallbackReturn::SUCCESS;
 }
@@ -117,7 +134,7 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
     if (this->diagnostic_subscriber.get() != nullptr) this->diagnostic_subscriber.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
-
+    if (this->FirstOrderFilter != nullptr) this->FirstOrderFilter.reset();
     RCLCPP_INFO(this->get_logger(), "error");
     return CallbackReturn::SUCCESS;
 }
@@ -125,20 +142,36 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
     RC_control = *msg;
+    double vx_set_control = 0,vy_set_control = 0;
+    //键盘控制
+    if(RC_control.key_w)
+    {
+        vx_set_control = x_max_speed;
+    }else if(RC_control.key_s)
+    {
+        vx_set_control = -x_max_speed;
+    }else if(RC_control.key_a)
+    {
+        vy_set_control = y_max_speed;
+    }else if(RC_control.key_d)
+    {
+        vy_set_control = -y_max_speed;
+    }
+    //遥控器控制
     if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
         return;
     } else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-        twist.linear.x = RC_control.ch_left_y * x_max_speed;
-        twist.linear.y = -RC_control.ch_left_x * y_max_speed;
+        vx_set_control = RC_control.ch_left_y * x_max_speed;
+        vy_set_control = -RC_control.ch_left_x * y_max_speed;
         twist.angular.z = -RC_control.ch_wheel * rotate_max_speed;
     }
-
+    twist.linear.x = FirstOrderFilter->first_order_filter(vx_set_control);
+    twist.linear.y = FirstOrderFilter->first_order_filter(vy_set_control);
     std::map<std::string, double> chassis_speed;
     chassis_speed.insert(std::make_pair("vx", twist.linear.x));
     chassis_speed.insert(std::make_pair("vy", twist.linear.y));
     chassis_speed.insert(std::make_pair("az", twist.angular.z));
     cmd_publisher->publish(twist);
-
 }
 
 void ChassisTeleop::diagnostic_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg) {

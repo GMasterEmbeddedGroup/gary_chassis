@@ -3,7 +3,7 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "gary_msgs/msg/dr16_receiver.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-
+#include "utils/first_order_filter.hpp"
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 namespace gary_chassis {
@@ -33,6 +33,8 @@ private:
     double y_max_speed;
     double x_max_speed;
     double rotate_max_speed;
+    double p;
+    double frame_period;
     gary_msgs::msg::DR16Receiver RC_control;
     geometry_msgs::msg::Twist twist;
 
@@ -45,6 +47,9 @@ private:
 
     //diagnostic message
     diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
+
+    //filter
+    std::shared_ptr<gary_chassis::First_orderFilter> FirstOrderFilter;
     };
 
 }
