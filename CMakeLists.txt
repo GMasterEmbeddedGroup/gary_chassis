@@ -94,6 +94,16 @@ ament_target_dependencies(
 
 rclcpp_components_register_nodes(chassis_teleop_lib "gary_chassis::ChassisTeleop")
 
+add_executable(power_control src/chassis_powercontrol.cpp)
+
+target_include_directories(power_control PRIVATE include)
+
+ament_target_dependencies(
+        power_control
+        rclcpp
+        gary_msgs
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -105,7 +115,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop
+install(TARGETS mecanum_chassis_solver chassis_teleop power_control
         DESTINATION lib/${PROJECT_NAME}
         )
 
