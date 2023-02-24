@@ -104,6 +104,37 @@ ament_target_dependencies(
         gary_msgs
 )
 
+add_executable(omnidirectional_chassis_solver src/omnidirectional_chassis_solver.cpp src/utils/omnidirectional_kinematics.cpp)
+
+target_include_directories(omnidirectional_chassis_solver PRIVATE include)
+
+ament_target_dependencies(
+        omnidirectional_chassis_solver
+        rclcpp
+        rclcpp_components
+        rclcpp_lifecycle
+        std_msgs
+        geometry_msgs
+        diagnostic_msgs
+)
+
+add_library(omnidirectional_chassis_solver_lib SHARED
+        src/omnidirectional_chassis_solver.cpp src/utils/omnidirectional_kinematics.cpp)
+
+target_include_directories(omnidirectional_chassis_solver_lib PRIVATE include)
+
+ament_target_dependencies(
+        omnidirectional_chassis_solver_lib
+        rclcpp
+        rclcpp_components
+        rclcpp_lifecycle
+        std_msgs
+        geometry_msgs
+        diagnostic_msgs
+)
+
+rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmnidirectionalChassisSolver")
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -115,11 +146,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop power_control
+install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omnidirectional_chassis_solver_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
