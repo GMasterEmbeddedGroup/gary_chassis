@@ -20,3 +20,8 @@ double First_orderFilter::first_order_filter(double input) {
     this->out += delta_input;
     return this->out;
 }
+
+void First_orderFilter::reset() {
+    this->out = 0;
+    this->last_time = rclcpp::Clock{RCL_SYSTEM_TIME}.now().seconds();
+}
