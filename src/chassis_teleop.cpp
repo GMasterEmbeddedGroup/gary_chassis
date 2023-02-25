@@ -10,29 +10,16 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
                                                                                                    options) {
 
     this->declare_parameter("cmd_topic");
-    this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
     this->declare_parameter("rotate_max_speed");
     this->declare_parameter("x_max_accel");
     this->declare_parameter("y_max_accel");
-    this->declare_parameter("rotate_max_accel");
 }
 
 CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-
-
-    //get diagnostic_topic
-    if (this->get_parameter("diagnostic_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "diagnostic_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
-    this->diagnostic_topic = this->get_parameter("diagnostic_topic").as_string();
-    this->diagnostic_subscriber = this->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
-            this->diagnostic_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisTeleop::diagnostic_callback, this, std::placeholders::_1));
 
     //get topic_cmd
     if (this->get_parameter("cmd_topic").get_type() != rclcpp::PARAMETER_STRING) {
@@ -87,16 +74,8 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
     }
     this->y_max_accel = this->get_parameter("y_max_accel").as_double();
 
-    //get the rotate_max_accel
-    if (this->get_parameter("rotate_max_accel").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "rotate_max_accel type must be double");
-        return CallbackReturn::FAILURE;
-    }
-    this->rotate_max_accel = this->get_parameter("rotate_max_accel").as_double();
-
     this->x_filter = std::make_shared<gary_chassis::First_orderFilter>(this->x_max_accel);
     this->y_filter = std::make_shared<gary_chassis::First_orderFilter>(this->y_max_accel);
-    this->rotate_filter = std::make_shared<gary_chassis::First_orderFilter>(this->rotate_max_accel);
 
     RCLCPP_INFO(this->get_logger(), "configured");
 
@@ -107,11 +86,9 @@ CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous
     RCL_UNUSED(previous_state);
 
     this->cmd_publisher.reset();
-    this->diagnostic_subscriber.reset();
     this->rc_subscriber.reset();
     this->x_filter.reset();
     this->y_filter.reset();
-    this->rotate_filter.reset();
     RCLCPP_INFO(this->get_logger(), "cleaning up");
 
     return CallbackReturn::SUCCESS;
@@ -136,11 +113,9 @@ CallbackReturn ChassisTeleop::on_deactivate(const rclcpp_lifecycle::State &previ
 CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
-    if (this->diagnostic_subscriber.get() != nullptr) this->diagnostic_subscriber.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
-    if (this->rotate_filter != nullptr) this->rotate_filter.reset();
     RCLCPP_INFO(this->get_logger(), "shutdown");
     return CallbackReturn::SUCCESS;
 }
@@ -149,11 +124,9 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
     RCL_UNUSED(previous_state);
 
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
-    if (this->diagnostic_subscriber.get() != nullptr) this->diagnostic_subscriber.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
-    if (this->rotate_filter != nullptr) this->rotate_filter.reset();
     RCLCPP_INFO(this->get_logger(), "error");
     return CallbackReturn::SUCCESS;
 }
@@ -162,7 +135,8 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
     RC_control = *msg;
     double vx_set_control = 0,vy_set_control = 0,az_set_control = 0;
-    double vx_filter_output = 0,vy_filter_output = 0,az_filter_output = 0;
+    double vx_filter_output = 0,vy_filter_output = 0;
+
     //键盘控制
     if(RC_control.key_w)
     {
@@ -177,6 +151,7 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     {
         vy_set_control = -y_max_speed;
     }
+
     //遥控器控制
     if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
         return;
@@ -184,21 +159,20 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
         az_set_control = -RC_control.ch_wheel * rotate_max_speed;
-        vx_filter_output = x_filter->first_order_filter(vx_set_control);;
-        vy_filter_output = y_filter->first_order_filter(vy_set_control);;
-        az_filter_output = rotate_filter->first_order_filter(az_set_control);;
     }
-    twist.linear.x = vx_set_control == 0 ? vx_set_control : vx_filter_output;
-    twist.linear.y = vy_set_control == 0 ? vy_set_control : vy_filter_output;
-    twist.angular.z = az_set_control == 0 ? az_set_control : az_filter_output;
+
+    if (vx_set_control == 0) x_filter->reset();
+    if (vy_set_control == 0) y_filter->reset();
+    vx_filter_output = x_filter->first_order_filter(vx_set_control);
+    vy_filter_output = y_filter->first_order_filter(vy_set_control);
+
+    twist.linear.x = vx_filter_output;
+    twist.linear.y = vy_filter_output;
+    twist.angular.z = az_set_control;
 
     cmd_publisher->publish(twist);
 }
 
-void ChassisTeleop::diagnostic_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg) {
-    //store the data
-    this->diagnostic_array = *msg;
-}
 
 int main(int argc, char const *const argv[]) {
     rclcpp::init(argc, argv);

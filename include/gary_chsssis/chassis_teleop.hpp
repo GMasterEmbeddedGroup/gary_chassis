@@ -24,10 +24,9 @@ private:
 
     CallbackReturn on_error(const rclcpp_lifecycle::State &previous_state) override;
 
-    void diagnostic_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
     void rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg);
+
     //params
-    std::string diagnostic_topic;
     std::string remote_control_topic;
     std::string cmd_topic;
     double y_max_speed;
@@ -35,7 +34,6 @@ private:
     double rotate_max_speed;
     double x_max_accel;
     double y_max_accel;
-    double rotate_max_accel;
 
     gary_msgs::msg::DR16Receiver RC_control;
     geometry_msgs::msg::Twist twist;
@@ -44,15 +42,10 @@ private:
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr cmd_publisher;
 
     //subscriber
-    rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_subscriber;
     rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
-
-    //diagnostic message
-    diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
 
     //filter
     std::shared_ptr<gary_chassis::First_orderFilter> x_filter;
     std::shared_ptr<gary_chassis::First_orderFilter> y_filter;
-    std::shared_ptr<gary_chassis::First_orderFilter> rotate_filter;
     };
 }
