@@ -33,8 +33,10 @@ private:
     double y_max_speed;
     double x_max_speed;
     double rotate_max_speed;
-    double p;
-    double frame_period;
+    double x_max_accel;
+    double y_max_accel;
+    double rotate_max_accel;
+
     gary_msgs::msg::DR16Receiver RC_control;
     geometry_msgs::msg::Twist twist;
 
@@ -49,7 +51,8 @@ private:
     diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
 
     //filter
-    std::shared_ptr<gary_chassis::First_orderFilter> FirstOrderFilter;
+    std::shared_ptr<gary_chassis::First_orderFilter> x_filter;
+    std::shared_ptr<gary_chassis::First_orderFilter> y_filter;
+    std::shared_ptr<gary_chassis::First_orderFilter> rotate_filter;
     };
-
 }
