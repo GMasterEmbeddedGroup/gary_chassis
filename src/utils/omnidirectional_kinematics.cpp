@@ -50,10 +50,14 @@ std::map<std::string, double> OmniKinematics::inverse_solve(const std::map<std::
         double lb = (+ vx + vy + az * (a + b)) *R;
         double rb = (- vx + vy + az * (a + b)) * R;*/
         //视频寄活
-        double rf = (-sin(atan2(vx,vy))*V);
+       /* double rf = (-sin(atan2(vx,vy))*V);
         double lf = (cos(atan2(vx,vy))*V);
         double lb = (sin(atan2(vx,vy))*V);
-        double rb = (-cos(atan2(vx,vy))*V);
+        double rb = (-cos(atan2(vx,vy))*V);*/
+        double rf = (-sqrt(2)/2*V);
+        double lf = (-sqrt(2)/2*V);
+        double lb = (sqrt(2)/2*V);
+        double rb = (-sqrt(2)/2*V);
 
         wheel_speed.insert(std::make_pair("right_front", rf));
         wheel_speed.insert(std::make_pair("left_front", lf));
