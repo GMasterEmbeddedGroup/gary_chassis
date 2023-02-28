@@ -24,6 +24,8 @@ find_package(gary_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(controller_manager_msgs REQUIRED)
+find_package(control_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -75,6 +77,8 @@ ament_target_dependencies(
         rclcpp_components
         gary_msgs
         geometry_msgs
+        controller_manager_msgs
+        control_msgs
 )
 
 add_library(chassis_teleop_lib SHARED src/chassis_teleop.cpp src/utils/first_order_filter.cpp)
@@ -88,6 +92,8 @@ ament_target_dependencies(
         lifecycle_msgs
         rclcpp_lifecycle
         rclcpp_components
+        controller_manager_msgs
+        control_msgs
         gary_msgs
         geometry_msgs
 )
@@ -101,6 +107,8 @@ target_include_directories(power_control PRIVATE include)
 ament_target_dependencies(
         power_control
         rclcpp
+        controller_manager_msgs
+        control_msgs
         gary_msgs
 )
 

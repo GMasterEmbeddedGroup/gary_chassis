@@ -11,6 +11,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
 
     this->declare_parameter("cmd_topic");
     this->declare_parameter("remote_control", "/remote_control");
+    this->declare_parameter("joint_topic","/dynamic_joint_states");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
     this->declare_parameter("rotate_max_speed");
@@ -39,6 +40,15 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
             this->remote_control_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&ChassisTeleop::rc_callback, this, std::placeholders::_1));
 
+    //get joint
+    if (this->get_parameter("joint_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->joint_topic = this->get_parameter("remote_control").as_string();
+    this->joint_subscriber = this->create_subscription<control_msgs::msg::DynamicJointState>(
+            this->joint_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisTeleop::joint_callback, this, std::placeholders::_1));
     //get y_max_speed
     if (this->get_parameter("y_max_speed").get_type() != rclcpp::PARAMETER_DOUBLE) {
         RCLCPP_ERROR(this->get_logger(), "y_max_speed type must be double");
@@ -131,6 +141,24 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
     return CallbackReturn::SUCCESS;
 }
 
+void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
+    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+        if (joint_state->joint_names[i] == "gimbal_pitch") {
+            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
+                if (joint_state->interface_values[i].interface_names[j] == "encoder") {
+                    double origin = joint_state->interface_values[i].values[j];
+                    double fixed = origin;
+                    fixed = origin - 1.717291;
+                    if (fixed < 0) fixed+=6.28;
+                    if(fixed > PI) fixed-=2*PI;//转换为-PI到PI
+                    if(origin > PI) origin-=2*PI;
+                    gary_chassis::yaw.relative_angle = origin;
+                    //RCLCPP_INFO(this->get_logger(), "origin %f fixed %f", origin, fixed);
+                }
+            }
+        }
+    }
+}
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
     RC_control = *msg;
@@ -159,6 +187,13 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
         az_set_control = -RC_control.ch_wheel * rotate_max_speed;
+    }else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
+    {
+        float sin_yaw = sin(gary_chassis::yaw.relative_angle);
+        float cos_yaw = cos(gary_chassis::yaw.relative_angle);
+        vx_set_control = sin_yaw * vx_set_control + cos_yaw * vy_set_control;
+        vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
+        az_set_control = rotate_max_speed;
     }
 
     if (vx_set_control == 0) x_filter->reset();
