@@ -153,7 +153,7 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
                     if(fixed > PI) fixed-=2*PI;//转换为-PI到PI
                     if(origin > PI) origin-=2*PI;
                     gary_chassis::yaw.relative_angle = origin;
-                    //RCLCPP_INFO(this->get_logger(), "origin %f fixed %f", origin, fixed);
+                    RCLCPP_INFO(this->get_logger(), "origin %f fixed %f", origin, fixed);
                 }
             }
         }
@@ -189,6 +189,8 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         az_set_control = -RC_control.ch_wheel * rotate_max_speed;
     }else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
+        vx_set_control = RC_control.ch_left_y * x_max_speed;
+        vy_set_control = -RC_control.ch_left_x * y_max_speed;
         float sin_yaw = sin(gary_chassis::yaw.relative_angle);
         float cos_yaw = cos(gary_chassis::yaw.relative_angle);
         vx_set_control = sin_yaw * vx_set_control + cos_yaw * vy_set_control;
