@@ -44,9 +44,9 @@ private:
     gary_msgs::msg::DR16Receiver RC_control;
     geometry_msgs::msg::Twist twist;
 
+
     //publisher
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr cmd_publisher;
-
     //subscriber
     rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
     rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_subscriber;

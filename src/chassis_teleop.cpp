@@ -143,7 +143,7 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
 
 void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if (joint_state->joint_names[i] == "gimbal_pitch") {
+        if (joint_state->joint_names[i] == "gimbal_yaw") {
             for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
                 if (joint_state->interface_values[i].interface_names[j] == "encoder") {
                     double origin = joint_state->interface_values[i].values[j];
@@ -153,7 +153,7 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
                     if(fixed > PI) fixed-=2*PI;//转换为-PI到PI
                     if(origin > PI) origin-=2*PI;
                     gary_chassis::yaw.relative_angle = origin;
-                    RCLCPP_INFO(this->get_logger(), "origin %f fixed %f", origin, fixed);
+                    //RCLCPP_DEBUG(this->get_logger(), "origin %f fixed %f", origin, fixed);
                 }
             }
         }
@@ -163,6 +163,8 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
     RC_control = *msg;
     double vx_set_control = 0,vy_set_control = 0,az_set_control = 0;
+    double vx_set = 0, vy_set = 0, az_set = 0;
+    double sin_yaw = 0, cos_yaw = 0;
     double vx_filter_output = 0,vy_filter_output = 0;
 
     //键盘控制
@@ -180,22 +182,37 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         vy_set_control = -y_max_speed;
     }
 
+
     //遥控器控制
     if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
         return;
-    } else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
+    }
+    //不跟随云台
+    /*else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
         az_set_control = -RC_control.ch_wheel * rotate_max_speed;
-    }else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
+
+    } */
+    //TODO：跟随云台
+    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
+        vx_set_control = RC_control.ch_left_y * x_max_speed;
+        vy_set_control = -RC_control.ch_left_x * y_max_speed;
+        sin_yaw = sin(gary_chassis::yaw.relative_angle);
+        cos_yaw = cos(gary_chassis::yaw.relative_angle);
+        vx_set_control = sin_yaw * vx_set_control + cos_yaw * vy_set_control;
+        vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
+
+    }//swing（NEED TEST）
+    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
-        float sin_yaw = sin(gary_chassis::yaw.relative_angle);
-        float cos_yaw = cos(gary_chassis::yaw.relative_angle);
+        sin_yaw = sin(gary_chassis::yaw.relative_angle);
+        cos_yaw = cos(gary_chassis::yaw.relative_angle);
         vx_set_control = sin_yaw * vx_set_control + cos_yaw * vy_set_control;
         vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
-        az_set_control = rotate_max_speed;
+        az_set_control = rotate_max_speed/2;
     }
 
     if (vx_set_control == 0) x_filter->reset();

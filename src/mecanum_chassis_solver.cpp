@@ -7,6 +7,7 @@ MecanumChassisSolver::MecanumChassisSolver(const rclcpp::NodeOptions &options) :
     //declare param
     this->declare_parameter("cmd_topic", "~/cmd_vel");
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
+    this->declare_parameter("odom_topic");
     this->declare_parameter("output_lf_topic");
     this->declare_parameter("output_lb_topic");
     this->declare_parameter("output_rf_topic");
@@ -43,6 +44,14 @@ CallbackReturn MecanumChassisSolver::on_configure(const rclcpp_lifecycle::State 
             this->diagnostic_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&MecanumChassisSolver::diag_callback, this, std::placeholders::_1));
 
+    //get odom_publisher
+    if (this->get_parameter("odom_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "odom_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->odom_topic = this->get_parameter("odom_topic").as_string();
+    this->odom_publisher = this->create_publisher<nav_msgs::msg::Odometry>(this->odom_topic,
+                                                                        rclcpp::SystemDefaultsQoS());
     //get output_lf_topic
     if (this->get_parameter("output_lf_topic").get_type() != rclcpp::PARAMETER_STRING) {
         RCLCPP_ERROR(this->get_logger(), "output_lf_topic type must be string");
@@ -255,6 +264,8 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
         data.data = wheel_speed["right_back"];
         this->rb_publisher->publish(data);
     }
+    odom.twist.twist = *msg;
+    odom_publisher->publish(odom);
 }
 
 

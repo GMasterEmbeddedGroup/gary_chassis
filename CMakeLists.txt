@@ -26,6 +26,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(controller_manager_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -43,6 +44,7 @@ ament_target_dependencies(
         std_msgs
         geometry_msgs
         diagnostic_msgs
+        nav_msgs
 )
 
 
@@ -59,6 +61,7 @@ ament_target_dependencies(
         std_msgs
         geometry_msgs
         diagnostic_msgs
+        nav_msgs
 )
 
 rclcpp_components_register_nodes(mecanum_chassis_solver_lib "gary_chassis::MecanumChassisSolver")
@@ -79,6 +82,7 @@ ament_target_dependencies(
         geometry_msgs
         controller_manager_msgs
         control_msgs
+        nav_msgs
 )
 
 add_library(chassis_teleop_lib SHARED src/chassis_teleop.cpp src/utils/first_order_filter.cpp)
@@ -96,6 +100,7 @@ ament_target_dependencies(
         control_msgs
         gary_msgs
         geometry_msgs
+
 )
 
 rclcpp_components_register_nodes(chassis_teleop_lib "gary_chassis::ChassisTeleop")
