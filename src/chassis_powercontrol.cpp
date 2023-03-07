@@ -1,10 +1,12 @@
 #include"rclcpp/rclcpp.hpp"
 #include "gary_msgs/msg/power_heat.hpp"
+#include "gary_msgs/msg/robot_status.hpp"
 #include <chrono>
 
 using namespace std::chrono_literals;
 
 gary_msgs::msg::PowerHeat power;
+gary_msgs::msg::RobotStatus power_limit;
 
 class PowerControl : public rclcpp::Node
 {
@@ -13,9 +15,15 @@ public:
     {
         power_sub_ = create_subscription<gary_msgs::msg::PowerHeat>("power",rclcpp::SystemDefaultsQoS(),
                                                                     std::bind(&PowerControl::power_callback,this,std::placeholders::_1));
+        power_limit_sub = create_subscription<gary_msgs::msg::RobotStatus>("power_limit",rclcpp::SystemDefaultsQoS(),
+                                                                           std::bind(&PowerControl::powerlimit_callback,this,std::placeholders::_1));
         timer_ = this->create_wall_timer(500ms,std::bind(&PowerControl::time_callback,this));
     }
 private:
+    void powerlimit_callback(gary_msgs::msg::RobotStatus::SharedPtr msg)
+    {
+        power_limit = *msg;
+    }
     void power_callback(gary_msgs::msg::PowerHeat::SharedPtr msg)
     {
         power = *msg;
@@ -62,6 +70,7 @@ private:
 
     }
     rclcpp::Subscription<gary_msgs::msg::PowerHeat>::SharedPtr power_sub_;
+    rclcpp::Subscription<gary_msgs::msg::RobotStatus>::SharedPtr power_limit_sub;
     rclcpp::TimerBase::SharedPtr timer_;
 };
 

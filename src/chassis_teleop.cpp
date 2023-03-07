@@ -198,19 +198,19 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
-        sin_yaw = sin(gary_chassis::yaw.relative_angle);
-        cos_yaw = cos(gary_chassis::yaw.relative_angle);
-        vx_set_control = sin_yaw * vx_set_control + cos_yaw * vy_set_control;
+        sin_yaw = sin(-gary_chassis::yaw.relative_angle);
+        cos_yaw = cos(-gary_chassis::yaw.relative_angle);
+        vx_set_control = cos_yaw * vx_set_control + sin_yaw * vy_set_control;
         vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
-
+        az_set_control =
     }//swing（NEED TEST）
     else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
-        sin_yaw = sin(gary_chassis::yaw.relative_angle);
-        cos_yaw = cos(gary_chassis::yaw.relative_angle);
-        vx_set_control = sin_yaw * vx_set_control + cos_yaw * vy_set_control;
+        sin_yaw = sin(-gary_chassis::yaw.relative_angle);
+        cos_yaw = cos(-gary_chassis::yaw.relative_angle);
+        vx_set_control = cos_yaw * vx_set_control + sin_yaw * vy_set_control;
         vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
         az_set_control = rotate_max_speed/2;
     }
