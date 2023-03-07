@@ -189,7 +189,7 @@ void OdometryR::time_callback() {
     wheel_speed.emplace("left_front",lf_speed);
     wheel_speed.emplace("right_front",rf_speed);
 
-    chassis_speed = mecanum_kinematics->inverse_solve(chassis_speed,WHEEL_OFFLINE_NONE);
+    chassis_speed = mecanum_kinematics->forward_solve(wheel_speed,WHEEL_OFFLINE_NONE);
 
     nav_msgs::msg::Odometry data;
     data.twist.twist.linear.x = chassis_speed["vx"];

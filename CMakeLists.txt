@@ -144,7 +144,7 @@ ament_target_dependencies(
 
 rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmnidirectionalChassisSolver")
 
-add_executable(odom src/odometry.cpp)
+add_executable(odom src/odometry.cpp src/utils/mecanum_kinematics.cpp)
 
 target_include_directories(odom PRIVATE include)
 
@@ -160,7 +160,7 @@ ament_target_dependencies(
 )
 
 add_library(odom_lib SHARED
-        src/odometry.cpp)
+        src/odometry.cpp src/utils/mecanum_kinematics.cpp)
 
 target_include_directories(odom_lib PRIVATE include)
 
