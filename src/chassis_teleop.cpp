@@ -12,6 +12,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("cmd_topic");
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("joint_topic","/dynamic_joint_states");
+    this->declare_parameter("angle_follow");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
     this->declare_parameter("rotate_max_speed");
@@ -40,15 +41,26 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
             this->remote_control_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&ChassisTeleop::rc_callback, this, std::placeholders::_1));
 
+    //get angle_follow
+    if (this->get_parameter("angle_follow").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "angle_follow type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->angle_follow = this->get_parameter("angle_follow").as_string();
+    this->angle_follow_sub = this->create_subscription<gary_msgs::msg::PID>(
+            this->angle_follow, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisTeleop::angle_follow_callback, this, std::placeholders::_1));
+
     //get joint
     if (this->get_parameter("joint_topic").get_type() != rclcpp::PARAMETER_STRING) {
         RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
         return CallbackReturn::FAILURE;
     }
-    this->joint_topic = this->get_parameter("remote_control").as_string();
+    this->joint_topic = this->get_parameter("joint_topic").as_string();
     this->joint_subscriber = this->create_subscription<control_msgs::msg::DynamicJointState>(
             this->joint_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&ChassisTeleop::joint_callback, this, std::placeholders::_1));
+
     //get y_max_speed
     if (this->get_parameter("y_max_speed").get_type() != rclcpp::PARAMETER_DOUBLE) {
         RCLCPP_ERROR(this->get_logger(), "y_max_speed type must be double");
@@ -141,6 +153,9 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
     return CallbackReturn::SUCCESS;
 }
 
+void ChassisTeleop::angle_follow_callback(gary_msgs::msg::PID::SharedPtr msg) {
+    angle_follow_pid = *msg;
+}
 void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
         if (joint_state->joint_names[i] == "gimbal_yaw") {
@@ -194,7 +209,7 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         az_set_control = -RC_control.ch_wheel * rotate_max_speed;
 
     }
-    /*//TODO：跟随云台
+ /*   //跟随云台（TODO：test
     else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
@@ -202,9 +217,9 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         cos_yaw = cos(-gary_chassis::yaw.relative_angle);
         vx_set_control = cos_yaw * vx_set_control + sin_yaw * vy_set_control;
         vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
-        az_set_control =*
+        az_set_control = angle_follow_pid.out;
     }*/
-    //swing（NEED TEST）
+    //swing（TODO：test
     else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
         vx_set_control = RC_control.ch_left_y * x_max_speed;

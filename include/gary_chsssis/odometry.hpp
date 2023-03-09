@@ -6,7 +6,12 @@
 #include "diagnostic_msgs//msg/diagnostic_array.hpp"
 #include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "utils/mecanum_kinematics.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "chrono"
+using namespace std::chrono_literals;
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 namespace gary_chassis {
@@ -25,12 +30,12 @@ namespace gary_chassis {
 
         void twist_callback(geometry_msgs::msg::Twist::SharedPtr msg);
         void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state);
+        void imu_callback(sensor_msgs::msg::Imu::SharedPtr msg);
         void time_callback();
         std::string odom_topic;
         std::string twist_topic;
         std::string joint_topic;
-        std::string time;
-
+        std::string imu_topic;
         double lb_speed;
         double lf_speed;
         double rb_speed;
@@ -40,9 +45,12 @@ namespace gary_chassis {
         double r;
         geometry_msgs::msg::Twist twist_msg;
         nav_msgs::msg::Odometry odom_msg;
+        sensor_msgs::msg::Imu Imu;
         //subscriber
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_subscriber;
         rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_subscriber;
+        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscriber;
+
         //publisher
         rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;
 

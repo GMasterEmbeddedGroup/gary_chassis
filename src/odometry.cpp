@@ -10,7 +10,7 @@ OdometryR::OdometryR(const rclcpp::NodeOptions &options) : rclcpp_lifecycle::Lif
     this->declare_parameter("odom_topic","/odom");
     this->declare_parameter("twist_topic");
     this->declare_parameter("joint_topic","/dynamic_joint_states");
-    this->declare_parameter("time","100ms");
+    this->declare_parameter("imu_topic","//gimbal_imu_broadcaster/imu");
     this->declare_parameter("a");
     this->declare_parameter("b");
     this->declare_parameter("r");
@@ -24,10 +24,19 @@ CallbackReturn OdometryR::on_configure(const rclcpp_lifecycle::State &previous_s
         RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
         return CallbackReturn::FAILURE;
     }
-    this->joint_topic = this->get_parameter("remote_control").as_string();
+    this->joint_topic = this->get_parameter("joint_topic").as_string();
     this->joint_subscriber = this->create_subscription<control_msgs::msg::DynamicJointState>(
             this->joint_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&OdometryR::joint_callback, this, std::placeholders::_1));
+    //get imu
+    if (this->get_parameter("imu_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "imu_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->imu_topic = this->get_parameter("imu_topic").as_string();
+    this->imu_subscriber = this->create_subscription<sensor_msgs::msg::Imu>(
+            this->imu_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&OdometryR::imu_callback, this, std::placeholders::_1));
 
     //get the twist_msg
     if (this->get_parameter("twist_topic").get_type() != rclcpp::PARAMETER_STRING) {
@@ -49,12 +58,6 @@ CallbackReturn OdometryR::on_configure(const rclcpp_lifecycle::State &previous_s
     this->odom_publisher = this->create_publisher<nav_msgs::msg::Odometry>(this->odom_topic,
                                                                         rclcpp::SystemDefaultsQoS());
     //get time
-    if(this->get_parameter("time").get_type() != rclcpp::PARAMETER_STRING){
-        RCLCPP_ERROR(this->get_logger(), "time type must be string");
-        return CallbackReturn::FAILURE;
-    }
-    this->time = this->get_parameter("time").as_string();
-    //TODO:时间可设置
     this->timer = this->create_wall_timer(100ms,std::bind(&OdometryR::time_callback,this));
 
     //get a
@@ -128,7 +131,12 @@ CallbackReturn OdometryR::on_error(const rclcpp_lifecycle::State &previous_state
 void OdometryR::twist_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     twist_msg = *msg;
 }
-
+void OdometryR::imu_callback(sensor_msgs::msg::Imu::SharedPtr msg)
+{
+    this->Imu = *msg;
+    (tf2::Quaternion(Imu.orientation.x, Imu.orientation.y, Imu.orientation.z, Imu.orientation.w));
+    tf2::Matrix3x3 (imu_quaternion);
+}
 void OdometryR::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
         if(joint_state->joint_names[i] == "chassis_lf")
@@ -196,6 +204,7 @@ void OdometryR::time_callback() {
     data.twist.twist.linear.y = chassis_speed["vy"];
     data.pose.pose.position.x =chassis_speed["vx"];
     data.pose.pose.position.y =chassis_speed["vy"];
+
     this->odom_publisher->publish(data);
 }
 int main(int argc, char const *const argv[]) {

@@ -27,6 +27,7 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(controller_manager_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -156,6 +157,7 @@ ament_target_dependencies(
         controller_manager_msgs
         control_msgs
         geometry_msgs
+        sensor_msgs
         nav_msgs
 )
 
@@ -172,6 +174,7 @@ ament_target_dependencies(
         controller_manager_msgs
         control_msgs
         geometry_msgs
+        sensor_msgs
         nav_msgs
 )
 

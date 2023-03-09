@@ -67,7 +67,11 @@ private:
                 total_current_limit = buffer_total_current_limit + power_total_current_limit;
             }
     }
-
+        if(power.chassis_current > total_current_limit)
+        {
+            float current_scale = total_current_limit / power.chassis_current;
+            
+        }
     }
     rclcpp::Subscription<gary_msgs::msg::PowerHeat>::SharedPtr power_sub_;
     rclcpp::Subscription<gary_msgs::msg::RobotStatus>::SharedPtr power_limit_sub;
