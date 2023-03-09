@@ -12,7 +12,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("cmd_topic");
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("joint_topic","/dynamic_joint_states");
-    this->declare_parameter("angle_follow");
+    this->declare_parameter("angle_follow","");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
     this->declare_parameter("rotate_max_speed");
@@ -163,12 +163,17 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
                 if (joint_state->interface_values[i].interface_names[j] == "encoder") {
                     double origin = joint_state->interface_values[i].values[j];
                     double fixed = origin;
-                    fixed = origin - 1.717291;
-                    if (fixed < 0) fixed+=6.28;
-                    if(fixed > PI) fixed-=2*PI;//转换为-PI到PI
-                    if(origin > PI) origin-=2*PI;
+                    fixed = origin - 1.66;
+                    static int flag = 0;
+                    if (flag == 0) {
+                        gary_chassis::yaw.relative_angle_pre = origin;
+                        flag = 1;
+                    }
+                    if (fixed < 0) fixed += 6.28;
+                    if (fixed > PI) fixed -= 2 * PI;//转换为-PI到PI
+                    if (origin > PI) origin -= 2 * PI;
                     gary_chassis::yaw.relative_angle = origin;
-                    //RCLCPP_DEBUG(this->get_logger(), "origin %f fixed %f", origin, fixed);
+                    //RCLCPP_INFO(this->get_logger(), "origin %f fixed %f", gimbal::yaw.relative_angle, fixed);
                 }
             }
         }
@@ -225,7 +230,7 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         vx_set_control = RC_control.ch_left_y * x_max_speed;
         vy_set_control = -RC_control.ch_left_x * y_max_speed;
         sin_yaw = sin(-gary_chassis::yaw.relative_angle);
-        cos_yaw = cos(-gary_chassis::yaw.relative_angle);
+        cos_yaw = cosf(-gary_chassis::yaw.relative_angle);
         vx_set_control = cos_yaw * vx_set_control + sin_yaw * vy_set_control;
         vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
         az_set_control = rotate_max_speed/2;

@@ -66,6 +66,7 @@ private:
         double absolute_angle_set;
         double absolute_angle_max;
         double absolute_angle_min;
+        double relative_angle_pre;
         double relative_angle;
 
         double ecd_transform;
