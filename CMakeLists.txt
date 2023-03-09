@@ -28,6 +28,7 @@ find_package(controller_manager_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -43,6 +44,9 @@ ament_target_dependencies(
         rclcpp_components
         rclcpp_lifecycle
         std_msgs
+        nav_msgs
+        controller_manager_msgs
+        control_msgs
         geometry_msgs
         diagnostic_msgs
 )
@@ -59,6 +63,9 @@ ament_target_dependencies(
         rclcpp_components
         rclcpp_lifecycle
         std_msgs
+        controller_manager_msgs
+        control_msgs
+        nav_msgs
         geometry_msgs
         diagnostic_msgs
 )
@@ -145,40 +152,6 @@ ament_target_dependencies(
 
 rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmnidirectionalChassisSolver")
 
-add_executable(odom src/odometry.cpp src/utils/mecanum_kinematics.cpp)
-
-target_include_directories(odom PRIVATE include)
-
-ament_target_dependencies(
-        odom
-        rclcpp
-        rclcpp_components
-        rclcpp_lifecycle
-        controller_manager_msgs
-        control_msgs
-        geometry_msgs
-        sensor_msgs
-        nav_msgs
-)
-
-add_library(odom_lib SHARED
-        src/odometry.cpp src/utils/mecanum_kinematics.cpp)
-
-target_include_directories(odom_lib PRIVATE include)
-
-ament_target_dependencies(
-        odom_lib
-        rclcpp
-        rclcpp_components
-        rclcpp_lifecycle
-        controller_manager_msgs
-        control_msgs
-        geometry_msgs
-        sensor_msgs
-        nav_msgs
-)
-
-rclcpp_components_register_nodes(odom_lib "gary_chassis::OdometryR")
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -190,11 +163,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver odom
+install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omnidirectional_chassis_solver_lib odom_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omnidirectional_chassis_solver_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)

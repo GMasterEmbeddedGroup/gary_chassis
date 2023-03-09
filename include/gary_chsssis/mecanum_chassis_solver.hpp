@@ -4,8 +4,9 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "utils/mecanum_kinematics.hpp"
+#include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "diagnostic_msgs//msg/diagnostic_array.hpp"
-
+#include "nav_msgs/msg/odometry.hpp"
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
@@ -26,11 +27,12 @@ namespace gary_chassis {
 
         void cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg);
         void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
-
+        void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state);
         //params
         std::string cmd_topic;
         std::string diagnostic_topic;
 
+        std::string odom_topic;
         std::string output_lf_topic;
         std::string output_lb_topic;
         std::string output_rf_topic;
@@ -39,7 +41,11 @@ namespace gary_chassis {
         std::string motor_lb_hw_id;
         std::string motor_rf_hw_id;
         std::string motor_rb_hw_id;
-
+        std::string joint_topic;
+        double lb_speed;
+        double lf_speed;
+        double rb_speed;
+        double rf_speed;
         double a;
         double b;
         double r;
@@ -50,6 +56,7 @@ namespace gary_chassis {
 
         //publisher
 
+        rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lf_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lb_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr rf_publisher;
