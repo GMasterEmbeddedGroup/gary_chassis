@@ -52,7 +52,7 @@ CallbackReturn MecanumChassisSolver::on_configure(const rclcpp_lifecycle::State 
     }
     this->odom_topic = this->get_parameter("odom_topic").as_string();
     this->odom_publisher = this->create_publisher<nav_msgs::msg::Odometry>(this->odom_topic,
-                                                                        rclcpp::SystemDefaultsQoS());
+                                                                           rclcpp::SystemDefaultsQoS());
     //get output_lf_topic
     if (this->get_parameter("output_lf_topic").get_type() != rclcpp::PARAMETER_STRING) {
         RCLCPP_ERROR(this->get_logger(), "output_lf_topic type must be string");
@@ -274,6 +274,7 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
     std::map<std::string, double> wheel_speed;
     std::map<std::string, double> chassis_speed_odom;
     std::map<std::string, double> wheel_speed_odom;
+    double x = 0, y = 0;
 
     chassis_speed.emplace("vx", msg->linear.x);
     chassis_speed.emplace("vy", msg->linear.y);
@@ -312,9 +313,12 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
 
     std_msgs::msg::Float64 data;
     nav_msgs::msg::Odometry odom_data;
+    odom_data.header.frame_id = "base_link";
+    odom_data.header.stamp = rclcpp::Clock().now();
+    odom_data.twist.twist.angular.x = chassis_speed_odom["vx"];
+    odom_data.twist.twist.angular.y = chassis_speed_odom["vy"];
+    odom_data.twist.twist.angular.z = chassis_speed_odom["az"];
 
-    odom_data.pose.pose.position.x = chassis_speed_odom["vx"];
-    odom_data.pose.pose.position.y = chassis_speed_odom["vy"];
 
     if(!lf_publisher->is_activated()||!lb_publisher->is_activated()||!rf_publisher->is_activated()||!rb_publisher->is_activated()) return;
     //publish the needed motor msg

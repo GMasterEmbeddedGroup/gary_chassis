@@ -22,6 +22,7 @@ public:
         joint_sub = this->create_subscription<control_msgs::msg::DynamicJointState>(
                     "/dynamic_joint_states", rclcpp::SystemDefaultsQoS(),
                 std::bind(&PowerControl::joint_callback, this, std::placeholders::_1));
+
     }
 private:
     void powerlimit_callback(gary_msgs::msg::RobotStatus::SharedPtr msg)
@@ -121,10 +122,10 @@ private:
                 total_current_limit = buffer_total_current_limit + power_total_current_limit;
             }
     }
-    float total_curernt = lb_current + lf_current + rb_current + rf_current;
-        if(total_curernt > total_current_limit)
+    float total_current = lb_current + lf_current + rb_current + rf_current;
+        if(total_current > total_current_limit)
         {
-            float current_scale = total_current_limit / total_curernt;
+            float current_scale = total_current_limit / total_current;
 
         }
     }

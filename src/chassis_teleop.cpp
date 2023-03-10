@@ -12,7 +12,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("cmd_topic");
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("joint_topic","/dynamic_joint_states");
-    this->declare_parameter("angle_follow","");
+    this->declare_parameter("angle_follow","/relative_angle_pid/cmd");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
     this->declare_parameter("rotate_max_speed");
@@ -109,6 +109,7 @@ CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous
 
     this->cmd_publisher.reset();
     this->rc_subscriber.reset();
+    this->angle_follow_sub.reset();
     this->x_filter.reset();
     this->y_filter.reset();
     RCLCPP_INFO(this->get_logger(), "cleaning up");
@@ -136,6 +137,7 @@ CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previou
     RCL_UNUSED(previous_state);
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
+    if (this->angle_follow_sub.get() != nullptr) this->angle_follow_sub.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
     RCLCPP_INFO(this->get_logger(), "shutdown");
@@ -147,6 +149,7 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
 
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
+    if (this->angle_follow_sub.get() != nullptr) this->angle_follow_sub.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
     RCLCPP_INFO(this->get_logger(), "error");
@@ -187,6 +190,9 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     double sin_yaw = 0, cos_yaw = 0;
     double vx_filter_output = 0,vy_filter_output = 0;
 
+    vx_set_control = RC_control.ch_left_y * x_max_speed;
+    vy_set_control = -RC_control.ch_left_x * y_max_speed;
+
     //键盘控制
     if(RC_control.key_w)
     {
@@ -202,48 +208,47 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         vy_set_control = -y_max_speed;
     }
 
-
-    //遥控器控制
-    if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
-        return;
-    }
-    //不跟随云台
-    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-        vx_set_control = RC_control.ch_left_y * x_max_speed;
-        vy_set_control = -RC_control.ch_left_x * y_max_speed;
-        az_set_control = -RC_control.ch_wheel * rotate_max_speed;
-
-    }
- /*   //跟随云台（TODO：test
-    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-        vx_set_control = RC_control.ch_left_y * x_max_speed;
-        vy_set_control = -RC_control.ch_left_x * y_max_speed;
-        sin_yaw = sin(-gary_chassis::yaw.relative_angle);
-        cos_yaw = cos(-gary_chassis::yaw.relative_angle);
-        vx_set_control = cos_yaw * vx_set_control + sin_yaw * vy_set_control;
-        vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
-        az_set_control = angle_follow_pid.out;
-    }*/
-    //swing（TODO：test
-    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
-    {
-        vx_set_control = RC_control.ch_left_y * x_max_speed;
-        vy_set_control = -RC_control.ch_left_x * y_max_speed;
-        sin_yaw = sin(-gary_chassis::yaw.relative_angle);
-        cos_yaw = cosf(-gary_chassis::yaw.relative_angle);
-        vx_set_control = cos_yaw * vx_set_control + sin_yaw * vy_set_control;
-        vy_set_control = -sin_yaw * vx_set_control + cos_yaw * vy_set_control;
-        az_set_control = rotate_max_speed/2;
-    }
-
     if (vx_set_control == 0) x_filter->reset();
     if (vy_set_control == 0) y_filter->reset();
     vx_filter_output = x_filter->first_order_filter(vx_set_control);
     vy_filter_output = y_filter->first_order_filter(vy_set_control);
 
-    twist.linear.x = vx_filter_output;
-    twist.linear.y = vy_filter_output;
-    twist.angular.z = az_set_control;
+
+    //遥控器控制
+    if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
+        return;
+    }
+        //不跟随云台
+    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
+        az_set_control = -RC_control.ch_wheel * rotate_max_speed;
+
+        twist.linear.x = vx_filter_output;
+        twist.linear.y = vy_filter_output;
+        twist.angular.z = az_set_control;
+    }
+        /* //跟随云台（TODO:IMPROVE
+          else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
+              sin_yaw = sin(-gary_chassis::yaw.relative_angle);
+              cos_yaw = cos(-gary_chassis::yaw.relative_angle);
+              vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
+              vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
+              az_set_control = angle_follow_pid.out;
+              twist.linear.x = vx_set;
+              twist.linear.y = vy_set;
+              twist.angular.z = az_set_control;
+          }*/
+        //swing
+    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
+    {
+        sin_yaw = sinf(-gary_chassis::yaw.relative_angle);
+        cos_yaw = cosf(-gary_chassis::yaw.relative_angle);
+        vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
+        vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
+        az_set_control = rotate_max_speed;
+        twist.linear.x = vx_set;
+        twist.linear.y = vy_set;
+        twist.angular.z = az_set_control;
+    }
 
     cmd_publisher->publish(twist);
 }
