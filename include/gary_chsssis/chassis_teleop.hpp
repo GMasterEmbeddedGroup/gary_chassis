@@ -35,6 +35,7 @@ private:
     void angle_follow_callback(gary_msgs::msg::PID::SharedPtr msg);
     //params
     std::string remote_control_topic;
+    std::string angle_set_topic;
     std::string joint_topic;
     std::string cmd_topic;
     std::string angle_follow;
@@ -50,6 +51,7 @@ private:
 
     //publisher
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr cmd_publisher;
+    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr angle_pid_set_pub;
     //subscriber
     rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
     rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_subscriber;

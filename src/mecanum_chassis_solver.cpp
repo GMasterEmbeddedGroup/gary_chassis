@@ -313,12 +313,11 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
 
     std_msgs::msg::Float64 data;
     nav_msgs::msg::Odometry odom_data;
-    odom_data.header.frame_id = "base_link";
+    odom_data.child_frame_id = "base_link";
     odom_data.header.stamp = rclcpp::Clock().now();
-    odom_data.twist.twist.angular.x = chassis_speed_odom["vx"];
-    odom_data.twist.twist.angular.y = chassis_speed_odom["vy"];
+    odom_data.twist.twist.linear.x = chassis_speed_odom["vx"];
+    odom_data.twist.twist.linear.y = chassis_speed_odom["vy"];
     odom_data.twist.twist.angular.z = chassis_speed_odom["az"];
-
 
     if(!lf_publisher->is_activated()||!lb_publisher->is_activated()||!rf_publisher->is_activated()||!rb_publisher->is_activated()) return;
     //publish the needed motor msg

@@ -13,6 +13,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("joint_topic","/dynamic_joint_states");
     this->declare_parameter("angle_follow","/relative_angle_pid/cmd");
+    this->declare_parameter("angle_set_topic","/relative_angle_pid/cmd");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
     this->declare_parameter("rotate_max_speed");
@@ -30,6 +31,14 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
     }
     this->cmd_topic = this->get_parameter("cmd_topic").as_string();
     this->cmd_publisher = this->create_publisher<geometry_msgs::msg::Twist>(this->cmd_topic,
+                                                                            rclcpp::SystemDefaultsQoS());
+    //get angle_pid_set
+    if (this->get_parameter("angle_set_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "angle_set_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->angle_set_topic = this->get_parameter("angle_set_topic").as_string();
+    this->angle_pid_set_pub = this->create_publisher<std_msgs::msg::Float64>(this->angle_set_topic,
                                                                             rclcpp::SystemDefaultsQoS());
     //get remote_control
     if (this->get_parameter("remote_control").get_type() != rclcpp::PARAMETER_STRING) {
@@ -108,6 +117,7 @@ CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous
     RCL_UNUSED(previous_state);
 
     this->cmd_publisher.reset();
+    this->angle_pid_set_pub.reset();
     this->rc_subscriber.reset();
     this->angle_follow_sub.reset();
     this->x_filter.reset();
@@ -120,6 +130,7 @@ CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous
 CallbackReturn ChassisTeleop::on_activate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
     this->cmd_publisher->on_activate();
+    this->angle_pid_set_pub->on_activate();
     RCLCPP_INFO(this->get_logger(), "activated");
 
     return CallbackReturn::SUCCESS;
@@ -128,6 +139,7 @@ CallbackReturn ChassisTeleop::on_activate(const rclcpp_lifecycle::State &previou
 CallbackReturn ChassisTeleop::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
     this->cmd_publisher->on_deactivate();
+    this->angle_pid_set_pub->on_deactivate();
     RCLCPP_INFO(this->get_logger(), "deactivated");
 
     return CallbackReturn::SUCCESS;
@@ -136,6 +148,7 @@ CallbackReturn ChassisTeleop::on_deactivate(const rclcpp_lifecycle::State &previ
 CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
+    if (this->angle_pid_set_pub.get() != nullptr) this->angle_pid_set_pub.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->angle_follow_sub.get() != nullptr) this->angle_follow_sub.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
@@ -148,6 +161,7 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
     RCL_UNUSED(previous_state);
 
     if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
+    if (this->angle_pid_set_pub.get() != nullptr) this->angle_pid_set_pub.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->angle_follow_sub.get() != nullptr) this->angle_follow_sub.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
@@ -189,9 +203,11 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     double vx_set = 0, vy_set = 0, az_set = 0;
     double sin_yaw = 0, cos_yaw = 0;
     double vx_filter_output = 0,vy_filter_output = 0;
-
+    std_msgs::msg::Float64 angle_pid_set;
+    angle_pid_set.data = 0;
+    this->angle_pid_set_pub->publish(angle_pid_set);
     vx_set_control = RC_control.ch_left_y * x_max_speed;
-    vy_set_control = -RC_control.ch_left_x * y_max_speed;
+    vy_set_control = RC_control.ch_left_x * y_max_speed;
 
     //键盘控制
     if(RC_control.key_w)
@@ -218,32 +234,32 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
         return;
     }
-        //不跟随云台
+/*        //不跟随云台
     else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
         az_set_control = -RC_control.ch_wheel * rotate_max_speed;
 
         twist.linear.x = vx_filter_output;
-        twist.linear.y = vy_filter_output;
+        twist.linear.y = -vy_filter_output;
         twist.angular.z = az_set_control;
-    }
-        /* //跟随云台（TODO:IMPROVE
-          else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
+    }*/
+         //跟随云台（TODO:IMPROVE
+          else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
               sin_yaw = sin(-gary_chassis::yaw.relative_angle);
               cos_yaw = cos(-gary_chassis::yaw.relative_angle);
-              vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
-              vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
+              vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
+              vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
               az_set_control = angle_follow_pid.out;
               twist.linear.x = vx_set;
               twist.linear.y = vy_set;
               twist.angular.z = az_set_control;
-          }*/
+          }
         //swing
     else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
         sin_yaw = sinf(-gary_chassis::yaw.relative_angle);
         cos_yaw = cosf(-gary_chassis::yaw.relative_angle);
-        vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
-        vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
+        vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
+        vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
         az_set_control = rotate_max_speed;
         twist.linear.x = vx_set;
         twist.linear.y = vy_set;

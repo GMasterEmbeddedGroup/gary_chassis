@@ -28,7 +28,7 @@ find_package(controller_manager_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-
+find_package(tf2_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -152,6 +152,19 @@ ament_target_dependencies(
 
 rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmnidirectionalChassisSolver")
 
+add_executable(odom src/odometry.cpp src/utils/mecanum_kinematics.cpp)
+
+target_include_directories(odom PRIVATE include)
+
+ament_target_dependencies(
+        odom
+        rclcpp
+        nav_msgs
+        controller_manager_msgs
+        control_msgs
+        sensor_msgs
+        tf2_msgs
+        )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -163,7 +176,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver
+install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver odom
         DESTINATION lib/${PROJECT_NAME}
         )
 
