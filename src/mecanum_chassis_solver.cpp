@@ -6,6 +6,7 @@ MecanumChassisSolver::MecanumChassisSolver(const rclcpp::NodeOptions &options) :
         rclcpp_lifecycle::LifecycleNode("mecanum_chassis_solver", options), a(0), b(0), r(0) {
     //declare param
     this->declare_parameter("cmd_topic", "~/cmd_vel");
+    this->declare_parameter("joint_topic", "/dynamic_joint_states");
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
     this->declare_parameter("odom_topic", "/odom");
     this->declare_parameter("output_lf_topic");
@@ -33,6 +34,15 @@ CallbackReturn MecanumChassisSolver::on_configure(const rclcpp_lifecycle::State 
     this->cmd_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
             this->cmd_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&MecanumChassisSolver::cmd_callback, this, std::placeholders::_1));
+ //get joint_topic
+    if (this->get_parameter("joint_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->joint_topic = this->get_parameter("joint_topic").as_string();
+    this->joint_sub = this->create_subscription<control_msgs::msg::DynamicJointState>(
+            this->joint_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&MecanumChassisSolver::joint_callback, this, std::placeholders::_1));
 
     //get diagnostic_topic
     if (this->get_parameter("diagnostic_topic").get_type() != rclcpp::PARAMETER_STRING) {
@@ -149,6 +159,7 @@ CallbackReturn MecanumChassisSolver::on_cleanup(const rclcpp_lifecycle::State &p
 
     this->cmd_subscriber.reset();
     this->diag_subscriber.reset();
+    this->joint_sub.reset();
     this->odom_publisher.reset();
     this->lf_publisher.reset();
     this->lb_publisher.reset();
@@ -167,7 +178,7 @@ CallbackReturn MecanumChassisSolver::on_activate(const rclcpp_lifecycle::State &
     this->lb_publisher->on_activate();
     this->rf_publisher->on_activate();
     this->rb_publisher->on_activate();
-
+    this->last_time = this->get_clock()->now();
     RCLCPP_INFO(this->get_logger(), "activated");
     return CallbackReturn::SUCCESS;
 }
@@ -190,6 +201,7 @@ CallbackReturn MecanumChassisSolver::on_shutdown(const rclcpp_lifecycle::State &
 
     if (this->cmd_subscriber.get() != nullptr) this->cmd_subscriber.reset();
     if (this->diag_subscriber.get() != nullptr) this->diag_subscriber.reset();
+    if (this->joint_sub.get() != nullptr) this->joint_sub.reset();
     if (this->odom_publisher.get() != nullptr) this->odom_publisher.reset();
     if (this->lf_publisher.get() != nullptr) this->lf_publisher.reset();
     if (this->lb_publisher.get() != nullptr) this->lb_publisher.reset();
@@ -206,6 +218,7 @@ CallbackReturn MecanumChassisSolver::on_error(const rclcpp_lifecycle::State &pre
     RCL_UNUSED(previous_state);
 
     if (this->cmd_subscriber.get() != nullptr) this->cmd_subscriber.reset();
+    if (this->joint_sub.get() != nullptr) this->joint_sub.reset();
     if (this->diag_subscriber.get() != nullptr) this->diag_subscriber.reset();
     if (this->odom_publisher.get() != nullptr) this->odom_publisher.reset();
     if (this->lf_publisher.get() != nullptr) this->lf_publisher.reset();
@@ -220,7 +233,7 @@ CallbackReturn MecanumChassisSolver::on_error(const rclcpp_lifecycle::State &pre
 
 void MecanumChassisSolver::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if(joint_state->joint_names[i] == "chassis_lf")
+        if(joint_state->joint_names[i] == "chassis_left_front")
         {
             for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
             {
@@ -232,7 +245,7 @@ void MecanumChassisSolver::joint_callback(control_msgs::msg::DynamicJointState::
         }
     }
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if(joint_state->joint_names[i] == "chassis_lb")
+        if(joint_state->joint_names[i] == "chassis_left_back")
         {
             for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
             {
@@ -244,7 +257,7 @@ void MecanumChassisSolver::joint_callback(control_msgs::msg::DynamicJointState::
         }
     }
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if(joint_state->joint_names[i] == "chassis_rf")
+        if(joint_state->joint_names[i] == "chassis_right_front")
         {
             for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
             {
@@ -256,7 +269,7 @@ void MecanumChassisSolver::joint_callback(control_msgs::msg::DynamicJointState::
         }
     }
     for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if(joint_state->joint_names[i] == "chassis_rb")
+        if(joint_state->joint_names[i] == "chassis_right_back")
         {
             for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
             {
@@ -266,15 +279,19 @@ void MecanumChassisSolver::joint_callback(control_msgs::msg::DynamicJointState::
                 }
             }
         }
+
     }
+   // RCLCPP_INFO(this->get_logger(), "lb %f lf %f rb%f rf%", this->lb_speed,this->lf_speed,rb_speed,rf_speed);
 }
 
 void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
+
+
     std::map<std::string, double> chassis_speed;
     std::map<std::string, double> wheel_speed;
     std::map<std::string, double> chassis_speed_odom;
     std::map<std::string, double> wheel_speed_odom;
-    double x = 0, y = 0;
+
 
     chassis_speed.emplace("vx", msg->linear.x);
     chassis_speed.emplace("vy", msg->linear.y);
@@ -284,6 +301,7 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
     wheel_speed_odom.emplace("right_back",rb_speed);
     wheel_speed_odom.emplace("left_front",lf_speed);
     wheel_speed_odom.emplace("right_front",rf_speed);
+
 
     bool lf_online_flag, lb_online_flag, rf_online_flag, rb_online_flag;
     lf_online_flag = lb_online_flag = rf_online_flag = rb_online_flag = false;
@@ -311,10 +329,30 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
     //odometry calculate
     chassis_speed_odom = mecanum_kinematics->forward_solve(wheel_speed_odom,WHEEL_OFFLINE_NONE);
 
+
     std_msgs::msg::Float64 data;
     nav_msgs::msg::Odometry odom_data;
+    current_time = this->get_clock()->now();
+    double dt = (current_time - last_time).seconds();
+    vx_o = chassis_speed_odom["vx"];
+    vy_o = chassis_speed_odom["vy"];
+    az_o = chassis_speed_odom["az"];
+    double delta_x = (vx_o * cos(z_angle) - vy_o * sin(z_angle)) * dt;
+    double delta_y = (vx_o * sin(z_angle) + vy_o * cos(z_angle)) * dt;
+    double delta_z = az_o * dt;
+    x += delta_x;
+    y += delta_y;
+    z += delta_z;
+    z_angle = z/14.03;
+
+    //RCLCPP_INFO(this->get_logger(), "x %f y %f a %f dx %f dy %f az %f dt %f", x, y, z, z_angle, delta_x, delta_y, dt);
+
+    odom_data.header.frame_id = "odom";
+    odom_data.header.stamp = current_time;
+    odom_data.pose.pose.position.x = x;
+    odom_data.pose.pose.position.y = y;
+    odom_data.pose.pose.position.z = 0.0;
     odom_data.child_frame_id = "base_link";
-    odom_data.header.stamp = rclcpp::Clock().now();
     odom_data.twist.twist.linear.x = chassis_speed_odom["vx"];
     odom_data.twist.twist.linear.y = chassis_speed_odom["vy"];
     odom_data.twist.twist.angular.z = chassis_speed_odom["az"];
@@ -339,6 +377,7 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
     }
 
     this->odom_publisher->publish(odom_data);
+    last_time = current_time;
 }
 
 

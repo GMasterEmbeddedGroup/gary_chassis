@@ -28,7 +28,7 @@ namespace gary_chassis {
         void cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg);
         void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
         void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state);
-        //params
+        //param
         std::string cmd_topic;
         std::string diagnostic_topic;
 
@@ -42,6 +42,11 @@ namespace gary_chassis {
         std::string motor_rf_hw_id;
         std::string motor_rb_hw_id;
         std::string joint_topic;
+        double x,y,z;
+        double z_angle;
+        double vx_o;
+        double vy_o;
+        double az_o;
         double lb_speed;
         double lf_speed;
         double rb_speed;
@@ -50,10 +55,11 @@ namespace gary_chassis {
         double b;
         double r;
 
+        rclcpp::Time current_time,last_time;
         //subscriber
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscriber;
         rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_subscriber;
-
+        rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_sub;
         //publisher
 
         rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;

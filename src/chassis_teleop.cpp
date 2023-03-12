@@ -12,7 +12,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("cmd_topic");
     this->declare_parameter("remote_control", "/remote_control");
     this->declare_parameter("joint_topic","/dynamic_joint_states");
-    this->declare_parameter("angle_follow","/relative_angle_pid/cmd");
+    this->declare_parameter("angle_follow","/relative_angle_pid/pid");
     this->declare_parameter("angle_set_topic","/relative_angle_pid/cmd");
     this->declare_parameter("x_max_speed");
     this->declare_parameter("y_max_speed");
@@ -195,6 +195,11 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
             }
         }
     }
+
+    if(!angle_pid_set_pub->is_activated()) return;
+    std_msgs::msg::Float64 angle_data;
+    angle_data.data = 0;
+    angle_pid_set_pub->publish(angle_data);
 }
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
@@ -203,12 +208,9 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     double vx_set = 0, vy_set = 0, az_set = 0;
     double sin_yaw = 0, cos_yaw = 0;
     double vx_filter_output = 0,vy_filter_output = 0;
-    std_msgs::msg::Float64 angle_pid_set;
-    angle_pid_set.data = 0;
-    this->angle_pid_set_pub->publish(angle_pid_set);
     vx_set_control = RC_control.ch_left_y * x_max_speed;
     vy_set_control = RC_control.ch_left_x * y_max_speed;
-
+    az_set_control = -RC_control.ch_wheel * rotate_max_speed;
     //键盘控制
     if(RC_control.key_w)
     {
@@ -229,42 +231,41 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     vx_filter_output = x_filter->first_order_filter(vx_set_control);
     vy_filter_output = y_filter->first_order_filter(vy_set_control);
 
-
     //遥控器控制
     if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
         return;
     }
-/*        //不跟随云台
-    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-        az_set_control = -RC_control.ch_wheel * rotate_max_speed;
-
+       //不跟随云台
+    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
+        az_set = az_set_control;
         twist.linear.x = vx_filter_output;
         twist.linear.y = -vy_filter_output;
-        twist.angular.z = az_set_control;
-    }*/
-         //跟随云台（TODO:IMPROVE
-          else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-              sin_yaw = sin(-gary_chassis::yaw.relative_angle);
-              cos_yaw = cos(-gary_chassis::yaw.relative_angle);
-              vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
-              vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
-              az_set_control = angle_follow_pid.out;
-              twist.linear.x = vx_set;
-              twist.linear.y = vy_set;
-              twist.angular.z = az_set_control;
-          }
+        twist.angular.z = az_set;
+    }
+     //跟随云台
+      else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
+          sin_yaw = 0, cos_yaw = 0;
+          sin_yaw = sin(-gary_chassis::yaw.relative_angle);
+          cos_yaw = cos(-gary_chassis::yaw.relative_angle);
+          vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
+          vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
+          az_set = angle_follow_pid.out;
+          twist.linear.x = vx_set;
+          twist.linear.y = vy_set;
+          twist.angular.z = az_set;
+      }
         //swing
-    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
+/*    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
         sin_yaw = sinf(-gary_chassis::yaw.relative_angle);
         cos_yaw = cosf(-gary_chassis::yaw.relative_angle);
         vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
         vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
-        az_set_control = rotate_max_speed;
+        az_set = rotate_max_speed;
         twist.linear.x = vx_set;
         twist.linear.y = vy_set;
-        twist.angular.z = az_set_control;
-    }
+        twist.angular.z = az_set;
+    }*/
 
     cmd_publisher->publish(twist);
 }

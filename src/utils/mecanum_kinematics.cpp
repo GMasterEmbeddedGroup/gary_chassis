@@ -21,6 +21,7 @@ std::map<std::string, double> MecanumKinematics::forward_solve(const std::map<st
     double vy = (-rf - lf + lb + rb) / 4 * this->r;
     double az = (-rf - lf - lb - rb) / 4 / (this->a + this->b);
 
+
     chassis_speed.insert(std::make_pair("vx", vx));
     chassis_speed.insert(std::make_pair("vy", vy));
     chassis_speed.insert(std::make_pair("az", az));

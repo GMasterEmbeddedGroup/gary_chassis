@@ -22,7 +22,7 @@ public:
         joint_sub = this->create_subscription<control_msgs::msg::DynamicJointState>(
                 "/dynamic_joint_states", rclcpp::SystemDefaultsQoS(),
                 std::bind(&ODOM::joint_callback, this, std::placeholders::_1));
-        timer_ = this->create_wall_timer(500ms,std::bind(&ODOM::time_callback,this));
+        timer_ = this->create_wall_timer(100ms,std::bind(&ODOM::time_callback,this));
         odom_publisher = this->create_publisher<nav_msgs::msg::Odometry>("/odom",
                                                                                rclcpp::SystemDefaultsQoS());
         imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("/gimbal_imu_broadcaster/imu",rclcpp::SystemDefaultsQoS(),
@@ -107,9 +107,9 @@ private:
     double a = 0.185;
     double b = 0.18922;
     double r = 0.075;
-    double x_base_link = 0;
-    double y_base_link = 0;
-    double z_base_link = 0;
+    double x = 0;
+    double y = 0;
+    double z = 0;
 
     nav_msgs::msg::Odometry send_Od_data;
     sensor_msgs::msg::Imu Imu;
