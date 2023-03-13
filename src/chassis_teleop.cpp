@@ -178,6 +178,7 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
         if (joint_state->joint_names[i] == "gimbal_yaw") {
             for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
                 if (joint_state->interface_values[i].interface_names[j] == "encoder") {
+                    encoder = joint_state->interface_values[i].values[j];
                     double origin = joint_state->interface_values[i].values[j];
                     double fixed = origin;
                     fixed = origin - 1.66;
@@ -196,9 +197,25 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
         }
     }
 
+    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+        if (joint_state->joint_names[i] == "gimbal_yaw") {
+            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
+                if (joint_state->interface_values[i].interface_names[j] == "position") {
+                    position = joint_state->interface_values[i].values[j];
+                }
+            }
+        }
+    }
+
+    double foward_position = abs(encoder-gary_chassis::yaw.relative_angle);
     if(!angle_pid_set_pub->is_activated()) return;
     std_msgs::msg::Float64 angle_data;
-    angle_data.data = 0;
+    if(encoder > gary_chassis::yaw.relative_angle){
+        angle_data.data = foward_position;
+    }else if(encoder < gary_chassis::yaw.relative_angle)
+    {
+        angle_data.data = - foward_position;
+    }
     angle_pid_set_pub->publish(angle_data);
 }
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {

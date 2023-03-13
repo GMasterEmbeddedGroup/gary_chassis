@@ -39,6 +39,8 @@ private:
     std::string joint_topic;
     std::string cmd_topic;
     std::string angle_follow;
+    double encoder;
+    double position;
     double y_max_speed;
     double x_max_speed;
     double rotate_max_speed;
