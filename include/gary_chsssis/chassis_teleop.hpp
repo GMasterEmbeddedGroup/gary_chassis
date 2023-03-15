@@ -41,6 +41,8 @@ private:
     std::string angle_follow;
     double encoder;
     double position;
+    double ecd;
+    double foward_position;
     double y_max_speed;
     double x_max_speed;
     double rotate_max_speed;
