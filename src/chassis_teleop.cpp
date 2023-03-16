@@ -174,6 +174,7 @@ void ChassisTeleop::angle_follow_callback(gary_msgs::msg::PID::SharedPtr msg) {
     angle_follow_pid = *msg;
 }
 void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
+
         for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
             if (joint_state->joint_names[i] == "gimbal_yaw") {
                 for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
@@ -195,6 +196,7 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
                 }
             }
         }
+
     if(!angle_pid_set_pub->is_activated()) return;
     std_msgs::msg::Float64 angle_data;
     static int f2 = 0;
@@ -211,9 +213,11 @@ void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedP
         angle_data.data = -foward_position;
     }
    angle_pid_set_pub->publish(angle_data);
+
 }
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
+    //RCLCPP_INFO(this->get_logger(), "encoder %f position %f", encoder,position);
     RC_control = *msg;
     double vx_set_control = 0,vy_set_control = 0,az_set_control = 0;
     double vx_set = 0, vy_set = 0, az_set = 0;
@@ -268,11 +272,13 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
         //swing
 /*    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
+
         sin_yaw = 0, cos_yaw = 0;
         sin_yaw = sin(foward_encoder-gary_chassis::yaw.relative_angle);
         cos_yaw = cos(foward_encoder-gary_chassis::yaw.relative_angle);
         vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
         vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
+
         az_set = rotate_max_speed;
         twist.linear.x = vx_set;
         twist.linear.y = vy_set;
