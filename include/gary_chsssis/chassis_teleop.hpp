@@ -39,8 +39,10 @@ private:
     std::string joint_topic;
     std::string cmd_topic;
     std::string angle_follow;
+    const double foward_encoder = 5.102787;
     double encoder;
-    double position;
+    double foward_position;
+    double foward_if;
     double y_max_speed;
     double x_max_speed;
     double rotate_max_speed;

@@ -174,49 +174,43 @@ void ChassisTeleop::angle_follow_callback(gary_msgs::msg::PID::SharedPtr msg) {
     angle_follow_pid = *msg;
 }
 void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
-    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if (joint_state->joint_names[i] == "gimbal_yaw") {
-            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
-                if (joint_state->interface_values[i].interface_names[j] == "encoder") {
-                    encoder = joint_state->interface_values[i].values[j];
-                    double origin = joint_state->interface_values[i].values[j];
-                    double fixed = origin;
-                    fixed = origin - 1.66;
-                    static int flag = 0;
-                    if (flag == 0) {
-                        gary_chassis::yaw.relative_angle_pre = origin;
-                        flag = 1;
+        for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+            if (joint_state->joint_names[i] == "gimbal_yaw") {
+                for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
+                    if (joint_state->interface_values[i].interface_names[j] == "encoder") {
+                        encoder = joint_state->interface_values[i].values[j];
+                        double origin = joint_state->interface_values[i].values[j];
+                        double fixed = origin;
+                        fixed = origin + 1.222581;
+                        if (fixed < 0) fixed += 6.28;
+                        if (fixed > PI) fixed -= 2 * PI;//转换为-PI到PI
+                        if (origin > PI) origin -= 2 * PI;
+                        gary_chassis::yaw.relative_angle = origin;
+                        static int flag_ecd1 = 0;
+                        if (flag_ecd1 == 0) {
+                            gary_chassis::yaw.relative_angle_pre = origin;
+                            flag_ecd1 = 1;
+                        }
                     }
-                    if (fixed < 0) fixed += 6.28;
-                    if (fixed > PI) fixed -= 2 * PI;//转换为-PI到PI
-                    if (origin > PI) origin -= 2 * PI;
-                    gary_chassis::yaw.relative_angle = origin;
-                    //RCLCPP_INFO(this->get_logger(), "origin %f fixed %f", gimbal::yaw.relative_angle, fixed);
                 }
             }
         }
-    }
-
-    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-        if (joint_state->joint_names[i] == "gimbal_yaw") {
-            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
-                if (joint_state->interface_values[i].interface_names[j] == "position") {
-                    position = joint_state->interface_values[i].values[j];
-                }
-            }
-        }
-    }
-
-    double foward_position = abs(encoder-gary_chassis::yaw.relative_angle);
     if(!angle_pid_set_pub->is_activated()) return;
     std_msgs::msg::Float64 angle_data;
-    if(encoder > gary_chassis::yaw.relative_angle){
-        angle_data.data = foward_position;
-    }else if(encoder < gary_chassis::yaw.relative_angle)
+    static int f2 = 0;
+    if(!f2)
     {
-        angle_data.data = - foward_position;
+        foward_position = abs(encoder - foward_encoder);
+        foward_if = encoder - foward_encoder;
+        f2 = 1;
     }
-    angle_pid_set_pub->publish(angle_data);
+   if(foward_if < 0){
+        angle_data.data = foward_position;
+    }else if(foward_if >= 0)
+    {
+        angle_data.data = -foward_position;
+    }
+   angle_pid_set_pub->publish(angle_data);
 }
 void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     if (!this->cmd_publisher->is_activated()) return;
@@ -226,21 +220,21 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     double sin_yaw = 0, cos_yaw = 0;
     double vx_filter_output = 0,vy_filter_output = 0;
     vx_set_control = RC_control.ch_left_y * x_max_speed;
-    vy_set_control = RC_control.ch_left_x * y_max_speed;
+    vy_set_control = -RC_control.ch_left_x * y_max_speed;
     az_set_control = -RC_control.ch_wheel * rotate_max_speed;
     //键盘控制
     if(RC_control.key_w)
     {
-        vx_set_control = x_max_speed;
+        vx_set_control = y_max_speed;
     }else if(RC_control.key_s)
     {
-        vx_set_control = -x_max_speed;
+        vx_set_control = -y_max_speed;
     }else if(RC_control.key_a)
     {
-        vy_set_control = y_max_speed;
+        vy_set_control = -y_max_speed;
     }else if(RC_control.key_d)
     {
-        vy_set_control = -y_max_speed;
+        vy_set_control = y_max_speed;
     }
 
     if (vx_set_control == 0) x_filter->reset();
@@ -256,34 +250,34 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
         az_set = az_set_control;
         twist.linear.x = vx_filter_output;
-        twist.linear.y = -vy_filter_output;
+        twist.linear.y = vy_filter_output;
         twist.angular.z = az_set;
     }
      //跟随云台
       else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-          sin_yaw = 0, cos_yaw = 0;
-          sin_yaw = sin(-gary_chassis::yaw.relative_angle);
-          cos_yaw = cos(-gary_chassis::yaw.relative_angle);
-          vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
-          vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
-          az_set = angle_follow_pid.out;
-          twist.linear.x = vx_set;
-          twist.linear.y = vy_set;
-          twist.angular.z = az_set;
+        sin_yaw = 0, cos_yaw = 0;
+        sin_yaw = sin(foward_encoder-gary_chassis::yaw.relative_angle);
+        cos_yaw = cos(foward_encoder-gary_chassis::yaw.relative_angle);
+        vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
+        vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
+        az_set = angle_follow_pid.out;
+        twist.linear.x = vx_set;
+        twist.linear.y = vy_set;
+        twist.angular.z = az_set;
       }
         //swing
 /*    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
     {
-        sin_yaw = sinf(-gary_chassis::yaw.relative_angle);
-        cos_yaw = cosf(-gary_chassis::yaw.relative_angle);
-        vx_set = cos_yaw * vy_filter_output + sin_yaw * vx_filter_output;
-        vy_set = -sin_yaw * vy_filter_output + cos_yaw * vx_filter_output;
+        sin_yaw = 0, cos_yaw = 0;
+        sin_yaw = sin(foward_encoder-gary_chassis::yaw.relative_angle);
+        cos_yaw = cos(foward_encoder-gary_chassis::yaw.relative_angle);
+        vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
+        vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
         az_set = rotate_max_speed;
         twist.linear.x = vx_set;
         twist.linear.y = vy_set;
         twist.angular.z = az_set;
     }*/
-
     cmd_publisher->publish(twist);
 }
 
