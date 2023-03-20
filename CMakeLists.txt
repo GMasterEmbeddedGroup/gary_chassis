@@ -130,6 +130,10 @@ ament_target_dependencies(
         rclcpp
         rclcpp_components
         rclcpp_lifecycle
+        controller_manager_msgs
+        control_msgs
+        nav_msgs
+        geometry_msgs
         std_msgs
         geometry_msgs
         diagnostic_msgs
@@ -145,12 +149,16 @@ ament_target_dependencies(
         rclcpp
         rclcpp_components
         rclcpp_lifecycle
+        controller_manager_msgs
+        control_msgs
+        nav_msgs
+        geometry_msgs
         std_msgs
         geometry_msgs
         diagnostic_msgs
 )
 
-rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmnidirectionalChassisSolver")
+rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmniChassisSolver")
 
 add_executable(odom src/odometry.cpp src/utils/mecanum_kinematics.cpp)
 
@@ -163,7 +171,6 @@ ament_target_dependencies(
         controller_manager_msgs
         control_msgs
         sensor_msgs
-        tf2_msgs
         )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -176,7 +183,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver odom
+install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver
         DESTINATION lib/${PROJECT_NAME}
         )
 

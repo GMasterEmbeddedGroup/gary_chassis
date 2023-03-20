@@ -356,7 +356,6 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
     odom_data.twist.twist.linear.x = chassis_speed_odom["vx"];
     odom_data.twist.twist.linear.y = chassis_speed_odom["vy"];
     odom_data.twist.twist.angular.z = chassis_speed_odom["az"];
-
     if(!lf_publisher->is_activated()||!lb_publisher->is_activated()||!rf_publisher->is_activated()||!rb_publisher->is_activated()) return;
     //publish the needed motor msg
     if (wheel_speed.count("left_front") == 1) {
@@ -375,9 +374,8 @@ void MecanumChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg
         data.data = wheel_speed["right_back"];
         this->rb_publisher->publish(data);
     }
-
     this->odom_publisher->publish(odom_data);
-    last_time = current_time;
+    /*last_time = current_time;*/
 }
 
 

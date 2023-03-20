@@ -10,7 +10,7 @@ OmniKinematics::OmniKinematics(double a, double b, double r) {
     this->r = r;
 }
 
-/*std::map<std::string, double> OmniKinematics::forward_solve(const std::map<std::string, double>& wheel_speed,
+std::map<std::string, double> OmniKinematics::forward_solve(const std::map<std::string, double>& wheel_speed,
                                                                wheel_offline_e wheel_offline) const {
     std::map<std::string, double> chassis_speed;
 
@@ -19,45 +19,28 @@ OmniKinematics::OmniKinematics(double a, double b, double r) {
     double rf = wheel_speed.at("right_front");
     double rb = wheel_speed.at("right_back");
 
-    double vx = (-rf + lf + lb - rb) / 4 * this->r;
-    double vy = (-rf - lf + lb + rb) / 4 * this->r;
-    double az = (-rf - lf - lb - rb) / 4 / (this->a + this->b);
+    double vx = (-rf + lf + lb - rb) / 4 * this->r *sqrt(2);
+    double vy = (-rf - lf + lb + rb) / 4 * this->r *sqrt(2);
+    double az = (-rf - lf - lb - rb) / 2 * this->r / (this->a + this->b);
 
     chassis_speed.insert(std::make_pair("vx", vx));
     chassis_speed.insert(std::make_pair("vy", vy));
     chassis_speed.insert(std::make_pair("az", az));
 
     return chassis_speed;
-}*/
+}
 
 std::map<std::string, double> OmniKinematics::inverse_solve(const std::map<std::string, double>& chassis_speed,
                                                                wheel_offline_e wheel_offline) const {
     std::map<std::string, double> wheel_speed;
-    const float pi = 3.141592654;
-    const double R = 60.0f/(0.97968*pi*pi)*1000;
     double vx = chassis_speed.at("vx");
     double vy = chassis_speed.at("vy");
     double az = chassis_speed.at("az");
-    double V = sqrt(pow(vx,2)+pow(vy,2));
     if (wheel_offline == WHEEL_OFFLINE_NONE) {
- /*       double rf = (- vx - vy + az * (a + b)) / this->r;
-        double lf = (+ vx - vy + az * (a + b)) / this->r;
-        double lb = (+ vx + vy + az * (a + b)) / this->r;
-        double rb = (- vx + vy + az * (a + b)) / this->r;*/
-        //开源寄活
-/*        double rf = (- vx - vy + az * (a + b)) * R;
-        double lf = (+ vx - vy + az * (a + b)) * R;
-        double lb = (+ vx + vy + az * (a + b)) *R;
-        double rb = (- vx + vy + az * (a + b)) * R;*/
-        //视频寄活
-       /* double rf = (-sin(atan2(vx,vy))*V);
-        double lf = (cos(atan2(vx,vy))*V);
-        double lb = (sin(atan2(vx,vy))*V);
-        double rb = (-cos(atan2(vx,vy))*V);*/
-        double rf = (-sqrt(2)/2*V);
-        double lf = (-sqrt(2)/2*V);
-        double lb = (sqrt(2)/2*V);
-        double rb = (-sqrt(2)/2*V);
+        double rf = (- vx * sqrt(2)/2 - vy * sqrt(2)/2 + az * (a + b))/2 / this->r;
+        double lf = (+ vx * sqrt(2)/2 - vy * sqrt(2)/2 + az * (a + b))/2 / this->r;
+        double lb = (+ vx * sqrt(2)/2 + vy * sqrt(2)/2 + az * (a + b))/2 / this->r;
+        double rb = (- vx * sqrt(2)/2 + vy * sqrt(2)/2 + az * (a + b))/2 / this->r;
 
         wheel_speed.insert(std::make_pair("right_front", rf));
         wheel_speed.insert(std::make_pair("left_front", lf));

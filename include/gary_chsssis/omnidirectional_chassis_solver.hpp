@@ -2,10 +2,12 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-
+#include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "utils/omnidirectional_kinematics.hpp"
 #include "diagnostic_msgs//msg/diagnostic_array.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
@@ -26,8 +28,10 @@ namespace gary_chassis {
 
         void cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg);
         void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
+        void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state);
 
         //params
+        std::string omni_odom_topic;
         std::string cmd_topic;
         std::string diagnostic_topic;
         std::string output_lf_topic;
@@ -38,15 +42,28 @@ namespace gary_chassis {
         std::string motor_lb_hw_id;
         std::string motor_rf_hw_id;
         std::string motor_rb_hw_id;
+        std::string joint_topic;
+        double x,y,z;
+        double z_angle;
+        double vx_o;
+        double vy_o;
+        double az_o;
+        double lb_speed;
+        double lf_speed;
+        double rb_speed;
+        double rf_speed;
         double a;
         double b;
         double r;
+        rclcpp::Time omni_current_time,omni_last_time;
 
         //subscriber
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscriber;
         rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_subscriber;
+        rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_sub;
 
         //publisher
+        rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr omni_odom_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lf_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lb_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr rf_publisher;

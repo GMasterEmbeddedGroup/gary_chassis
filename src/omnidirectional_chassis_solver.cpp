@@ -4,10 +4,12 @@
 using namespace gary_chassis;
 
 OmniChassisSolver::OmniChassisSolver(const rclcpp::NodeOptions &options) :
-        rclcpp_lifecycle::LifecycleNode("mecanum_chassis_solver", options), a(0), b(0), r(0) {
+        rclcpp_lifecycle::LifecycleNode("omni_chassis_solver", options), a(0), b(0), r(0) {
     //declare param
     this->declare_parameter("cmd_topic", "~/cmd_vel");
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
+    this->declare_parameter("odom_topic", "/odom");
+    this->declare_parameter("joint_topic", "/dynamic_joint_states");
     this->declare_parameter("output_lf_topic");
     this->declare_parameter("output_lb_topic");
     this->declare_parameter("output_rf_topic");
@@ -34,6 +36,17 @@ CallbackReturn OmniChassisSolver::on_configure(const rclcpp_lifecycle::State &pr
             this->cmd_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&OmniChassisSolver::cmd_callback, this, std::placeholders::_1));
 
+    //get joint_topic
+    if (this->get_parameter("joint_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->joint_topic = this->get_parameter("joint_topic").as_string();
+    this->joint_sub = this->create_subscription<control_msgs::msg::DynamicJointState>(
+            this->joint_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&OmniChassisSolver::joint_callback, this, std::placeholders::_1));
+
+
     //get diagnostic_topic
     if (this->get_parameter("diagnostic_topic").get_type() != rclcpp::PARAMETER_STRING) {
         RCLCPP_ERROR(this->get_logger(), "diagnostic_topic type must be string");
@@ -43,6 +56,16 @@ CallbackReturn OmniChassisSolver::on_configure(const rclcpp_lifecycle::State &pr
     this->diag_subscriber = this->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
             this->diagnostic_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&OmniChassisSolver::diag_callback, this, std::placeholders::_1));
+
+    //get odom_topic
+    if (this->get_parameter("odom_topic").get_type() != rclcpp::PARAMETER_STRING) {
+        RCLCPP_ERROR(this->get_logger(), "odom_topic type must be string");
+        return CallbackReturn::FAILURE;
+    }
+    this->omni_odom_topic = this->get_parameter("odom_topic").as_string();
+    this->omni_odom_publisher = this->create_publisher<nav_msgs::msg::Odometry>(this->omni_odom_topic,
+                                                                           rclcpp::SystemDefaultsQoS());
+
 
     //get output_lf_topic
     if (this->get_parameter("output_lf_topic").get_type() != rclcpp::PARAMETER_STRING) {
@@ -139,6 +162,7 @@ CallbackReturn OmniChassisSolver::on_cleanup(const rclcpp_lifecycle::State &prev
     RCL_UNUSED(previous_state);
 
     this->cmd_subscriber.reset();
+    this->omni_odom_publisher.reset();
     this->diag_subscriber.reset();
     this->lf_publisher.reset();
     this->lb_publisher.reset();
@@ -152,19 +176,19 @@ CallbackReturn OmniChassisSolver::on_cleanup(const rclcpp_lifecycle::State &prev
 
 CallbackReturn OmniChassisSolver::on_activate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-
+    this->omni_odom_publisher->on_activate();
     this->lf_publisher->on_activate();
     this->lb_publisher->on_activate();
     this->rf_publisher->on_activate();
     this->rb_publisher->on_activate();
-
+    this->omni_last_time = this->get_clock()->now();
     RCLCPP_INFO(this->get_logger(), "activated");
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn OmniChassisSolver::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-
+    this->omni_odom_publisher->on_deactivate();
     this->lf_publisher->on_deactivate();
     this->lb_publisher->on_deactivate();
     this->rf_publisher->on_deactivate();
@@ -176,7 +200,8 @@ CallbackReturn OmniChassisSolver::on_deactivate(const rclcpp_lifecycle::State &p
 
 CallbackReturn OmniChassisSolver::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-
+    if (this->omni_odom_publisher.get() != nullptr) this->omni_odom_publisher.reset();
+    if (this->joint_sub.get() != nullptr) this->joint_sub.reset();
     if (this->cmd_subscriber.get() != nullptr) this->cmd_subscriber.reset();
     if (this->diag_subscriber.get() != nullptr) this->diag_subscriber.reset();
     if (this->lf_publisher.get() != nullptr) this->lf_publisher.reset();
@@ -192,7 +217,8 @@ CallbackReturn OmniChassisSolver::on_shutdown(const rclcpp_lifecycle::State &pre
 
 CallbackReturn OmniChassisSolver::on_error(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-
+    if (this->joint_sub.get() != nullptr) this->joint_sub.reset();
+    if (this->omni_odom_publisher.get() != nullptr) this->omni_odom_publisher.reset();
     if (this->cmd_subscriber.get() != nullptr) this->cmd_subscriber.reset();
     if (this->diag_subscriber.get() != nullptr) this->diag_subscriber.reset();
     if (this->lf_publisher.get() != nullptr) this->lf_publisher.reset();
@@ -204,14 +230,72 @@ CallbackReturn OmniChassisSolver::on_error(const rclcpp_lifecycle::State &previo
     RCLCPP_INFO(this->get_logger(), "error");
     return CallbackReturn::SUCCESS;
 }
+void OmniChassisSolver::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
+    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+        if(joint_state->joint_names[i] == "chassis_left_front")
+        {
+            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
+            {
+                if (joint_state->interface_values[i].interface_names[j] == "velocity")
+                {
+                    this->lf_speed = joint_state->interface_values[i].values[j];
+                }
+            }
+        }
+    }
+    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+        if(joint_state->joint_names[i] == "chassis_left_back")
+        {
+            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
+            {
+                if (joint_state->interface_values[i].interface_names[j] == "velocity")
+                {
+                    this->lb_speed = joint_state->interface_values[i].values[j];
+                }
+            }
+        }
+    }
+    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+        if(joint_state->joint_names[i] == "chassis_right_front")
+        {
+            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
+            {
+                if (joint_state->interface_values[i].interface_names[j] == "velocity")
+                {
+                    this->rf_speed = joint_state->interface_values[i].values[j];
+                }
+            }
+        }
+    }
+    for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
+        if(joint_state->joint_names[i] == "chassis_right_back")
+        {
+            for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
+            {
+                if (joint_state->interface_values[i].interface_names[j] == "velocity")
+                {
+                    this->rb_speed = joint_state->interface_values[i].values[j];
+                }
+            }
+        }
 
+    }
+    //RCLCPP_INFO(this->get_logger(), "lb %f lf %f rb%f rf%", this->lb_speed,this->lf_speed,rb_speed,rf_speed);
+}
 void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     std::map<std::string, double> chassis_speed;
     std::map<std::string, double> wheel_speed;
+    std::map<std::string, double> chassis_speed_odom;
+    std::map<std::string, double> wheel_speed_odom;
 
     chassis_speed.emplace("vx", msg->linear.x);
     chassis_speed.emplace("vy", msg->linear.y);
     chassis_speed.emplace("az", msg->angular.z);
+
+    wheel_speed_odom.emplace("left_back",lb_speed);
+    wheel_speed_odom.emplace("right_back",rb_speed);
+    wheel_speed_odom.emplace("left_front",lf_speed);
+    wheel_speed_odom.emplace("right_front",rf_speed);
 
     bool lf_online_flag, lb_online_flag, rf_online_flag, rb_online_flag;
     lf_online_flag = lb_online_flag = rf_online_flag = rb_online_flag = false;
@@ -236,8 +320,39 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     } else if (! rb_online_flag) {
         wheel_speed = this->omni_kinematics->inverse_solve(chassis_speed, WHEEL_OFFLINE_RB);
     }
+    //odometry calculate
+    chassis_speed_odom = omni_kinematics->forward_solve(wheel_speed_odom,WHEEL_OFFLINE_NONE);
+
 
     std_msgs::msg::Float64 data;
+    nav_msgs::msg::Odometry omni_odom_data;
+    omni_current_time = this->get_clock()->now();
+    double dt = 0;
+    dt =  (omni_current_time - omni_last_time).seconds();
+    vx_o = chassis_speed_odom["vx"];
+    vy_o = chassis_speed_odom["vy"];
+    az_o = chassis_speed_odom["az"];
+    //RCLCPP_INFO(this->get_logger(), "az %f vx_o %f vy_o %f", az_o,vx_o,vy_o);
+    double delta_x = (vx_o * cos(z_angle) - vy_o * sin(z_angle)) * dt;
+    double delta_y = (vx_o * sin(z_angle) + vy_o * cos(z_angle)) * dt;
+    double delta_z = az_o * dt;
+    x += delta_x;
+    y += delta_y;
+    z += delta_z;
+    if(z>0)z_angle = z+0.16;
+    if(z<0)z_angle = z-0.17;
+
+    RCLCPP_INFO(this->get_logger(), "x %f y %f z %f z_angle %f", x, y, z, z_angle);
+
+    omni_odom_data.header.frame_id = "odom";
+    omni_odom_data.header.stamp = omni_current_time;
+    omni_odom_data.pose.pose.position.x = x;
+    omni_odom_data.pose.pose.position.y = y;
+    omni_odom_data.pose.pose.position.z = 0.0;
+    omni_odom_data.child_frame_id = "base_link";
+    omni_odom_data.twist.twist.linear.x = chassis_speed_odom["vx"];
+    omni_odom_data.twist.twist.linear.y = chassis_speed_odom["vy"];
+    omni_odom_data.twist.twist.angular.z = chassis_speed_odom["az"];
 
     //publish the needed motor msg
     if (wheel_speed.count("left_front") == 1) {
@@ -256,6 +371,8 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
         data.data = wheel_speed["right_back"];
         this->rb_publisher->publish(data);
     }
+    this->omni_odom_publisher->publish(omni_odom_data);
+    omni_last_time = omni_current_time;
 }
 
 
