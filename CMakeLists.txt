@@ -24,11 +24,9 @@ find_package(gary_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
-find_package(controller_manager_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(tf2_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -45,7 +43,6 @@ ament_target_dependencies(
         rclcpp_lifecycle
         std_msgs
         nav_msgs
-        controller_manager_msgs
         control_msgs
         geometry_msgs
         diagnostic_msgs
@@ -63,7 +60,6 @@ ament_target_dependencies(
         rclcpp_components
         rclcpp_lifecycle
         std_msgs
-        controller_manager_msgs
         control_msgs
         nav_msgs
         geometry_msgs
@@ -86,9 +82,9 @@ ament_target_dependencies(
         rclcpp_components
         gary_msgs
         geometry_msgs
-        controller_manager_msgs
         control_msgs
 )
+
 
 add_library(chassis_teleop_lib SHARED src/chassis_teleop.cpp src/utils/first_order_filter.cpp)
 
@@ -101,7 +97,6 @@ ament_target_dependencies(
         lifecycle_msgs
         rclcpp_lifecycle
         rclcpp_components
-        controller_manager_msgs
         control_msgs
         gary_msgs
         geometry_msgs
@@ -109,28 +104,28 @@ ament_target_dependencies(
 
 rclcpp_components_register_nodes(chassis_teleop_lib "gary_chassis::ChassisTeleop")
 
-add_executable(power_control src/chassis_powercontrol.cpp)
 
-target_include_directories(power_control PRIVATE include)
+add_executable(chassis_power_control src/chassis_power_control.cpp)
+
+target_include_directories(chassis_power_control PRIVATE include)
 
 ament_target_dependencies(
-        power_control
+        chassis_power_control
         rclcpp
-        controller_manager_msgs
         control_msgs
         gary_msgs
 )
 
-add_executable(omnidirectional_chassis_solver src/omnidirectional_chassis_solver.cpp src/utils/omnidirectional_kinematics.cpp)
 
-target_include_directories(omnidirectional_chassis_solver PRIVATE include)
+add_executable(omni_chassis_solver src/omni_chassis_solver.cpp src/utils/omni_kinematics.cpp)
+
+target_include_directories(omni_chassis_solver PRIVATE include)
 
 ament_target_dependencies(
-        omnidirectional_chassis_solver
+        omni_chassis_solver
         rclcpp
         rclcpp_components
         rclcpp_lifecycle
-        controller_manager_msgs
         control_msgs
         nav_msgs
         geometry_msgs
@@ -139,17 +134,17 @@ ament_target_dependencies(
         diagnostic_msgs
 )
 
-add_library(omnidirectional_chassis_solver_lib SHARED
-        src/omnidirectional_chassis_solver.cpp src/utils/omnidirectional_kinematics.cpp)
 
-target_include_directories(omnidirectional_chassis_solver_lib PRIVATE include)
+add_library(omni_chassis_solver_lib SHARED
+        src/omni_chassis_solver.cpp src/utils/omni_kinematics.cpp)
+
+target_include_directories(omni_chassis_solver_lib PRIVATE include)
 
 ament_target_dependencies(
-        omnidirectional_chassis_solver_lib
+        omni_chassis_solver_lib
         rclcpp
         rclcpp_components
         rclcpp_lifecycle
-        controller_manager_msgs
         control_msgs
         nav_msgs
         geometry_msgs
@@ -158,20 +153,9 @@ ament_target_dependencies(
         diagnostic_msgs
 )
 
-rclcpp_components_register_nodes(omnidirectional_chassis_solver_lib "gary_chassis::OmniChassisSolver")
+rclcpp_components_register_nodes(omni_chassis_solver_lib "gary_chassis::OmniChassisSolver")
 
-add_executable(odom src/odometry.cpp src/utils/mecanum_kinematics.cpp)
 
-target_include_directories(odom PRIVATE include)
-
-ament_target_dependencies(
-        odom
-        rclcpp
-        nav_msgs
-        controller_manager_msgs
-        control_msgs
-        sensor_msgs
-        )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -183,11 +167,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop power_control omnidirectional_chassis_solver
+install(TARGETS mecanum_chassis_solver chassis_teleop power_control omni_chassis_solver
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omnidirectional_chassis_solver_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omni_chassis_solver_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
@@ -199,8 +183,10 @@ ament_export_dependencies(
         gary_msgs
         std_msgs
         geometry_msgs
-        nav_msgs
         diagnostic_msgs
+        control_msgs
+        nav_msgs
+        sensor_msgs
 )
 
 ament_package()

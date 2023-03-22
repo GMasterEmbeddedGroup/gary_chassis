@@ -4,7 +4,7 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "std_msgs/msg/float64.hpp"
-#include "utils/omnidirectional_kinematics.hpp"
+#include "utils/omni_kinematics.hpp"
 #include "diagnostic_msgs//msg/diagnostic_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 

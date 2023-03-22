@@ -1,6 +1,4 @@
-
-#include "utils/omnidirectional_kinematics.hpp"
-
+#include "utils/omni_kinematics.hpp"
 
 using namespace gary_chassis;
 
