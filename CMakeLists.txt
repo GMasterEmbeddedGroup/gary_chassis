@@ -167,7 +167,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop power_control omni_chassis_solver
+install(TARGETS mecanum_chassis_solver chassis_teleop omni_chassis_solver
         DESTINATION lib/${PROJECT_NAME}
         )
 
