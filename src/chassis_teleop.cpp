@@ -1,4 +1,3 @@
-
 #include "gary_chsssis/chassis_teleop.hpp"
 
 using namespace std::chrono_literals;
@@ -8,105 +7,81 @@ using namespace gary_chassis;
 
 ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecycle::LifecycleNode("chassis_teleop",
                                                                                                    options) {
-
-    this->declare_parameter("cmd_topic");
-    this->declare_parameter("remote_control", "/remote_control");
-    this->declare_parameter("joint_topic","/dynamic_joint_states");
-    this->declare_parameter("angle_follow","/relative_angle_pid/pid");
-    this->declare_parameter("angle_set_topic","/relative_angle_pid/cmd");
-    this->declare_parameter("x_max_speed");
-    this->declare_parameter("y_max_speed");
-    this->declare_parameter("rotate_max_speed");
-    this->declare_parameter("x_max_accel");
-    this->declare_parameter("y_max_accel");
+    //declare params
+    this->declare_parameter("twist_pub_topic", "/cmd_vel");
+    this->declare_parameter("remote_control_topic", "/remote_control");
+    this->declare_parameter("joint_topic", "/dynamic_joint_states");
+    this->declare_parameter("gimbal_follow_set_topic", "/gimbal_follow_pid/cmd");
+    this->declare_parameter("gimbal_follow_fdb_topic", "/gimbal_follow_pid/pid");
+    this->declare_parameter("x_max_speed", 2.0f);
+    this->declare_parameter("y_max_speed", 2.0f);
+    this->declare_parameter("rotate_max_speed", 1.0f);
+    this->declare_parameter("x_max_accel", 1.0f);
+    this->declare_parameter("y_max_accel", 1.0f);
+    this->declare_parameter("use_break", true);
+    this->declare_parameter("update_rate", 200.0f);
+    this->declare_parameter("yaw_encoder_bias", 0.0f);
 }
 
 CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
-    //get topic_cmd
-    if (this->get_parameter("cmd_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "cmd_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
-    this->cmd_topic = this->get_parameter("cmd_topic").as_string();
-    this->cmd_publisher = this->create_publisher<geometry_msgs::msg::Twist>(this->cmd_topic,
-                                                                            rclcpp::SystemDefaultsQoS());
-    //get angle_pid_set
-    if (this->get_parameter("angle_set_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "angle_set_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
-    this->angle_set_topic = this->get_parameter("angle_set_topic").as_string();
-    this->angle_pid_set_pub = this->create_publisher<std_msgs::msg::Float64>(this->angle_set_topic,
-                                                                            rclcpp::SystemDefaultsQoS());
-    //get remote_control
-    if (this->get_parameter("remote_control").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "remote_control type must be string");
-        return CallbackReturn::FAILURE;
-    }
-    this->remote_control_topic = this->get_parameter("remote_control").as_string();
+    //get cmd_topic
+    this->twist_pub_topic = this->get_parameter("twist_pub_topic").as_string();
+    this->twist_publisher = this->create_publisher<geometry_msgs::msg::Twist>(this->twist_pub_topic,
+                                                                              rclcpp::SystemDefaultsQoS());
+
+    //get remote_control_topic
+    this->remote_control_topic = this->get_parameter("remote_control_topic").as_string();
     this->rc_subscriber = this->create_subscription<gary_msgs::msg::DR16Receiver>(
             this->remote_control_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&ChassisTeleop::rc_callback, this, std::placeholders::_1));
+    this->rc_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
-    //get angle_follow
-    if (this->get_parameter("angle_follow").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "angle_follow type must be string");
-        return CallbackReturn::FAILURE;
-    }
-    this->angle_follow = this->get_parameter("angle_follow").as_string();
-    this->angle_follow_sub = this->create_subscription<gary_msgs::msg::PID>(
-            this->angle_follow, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisTeleop::angle_follow_callback, this, std::placeholders::_1));
-
-    //get joint
-    if (this->get_parameter("joint_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
+    //get joint_topic
     this->joint_topic = this->get_parameter("joint_topic").as_string();
     this->joint_subscriber = this->create_subscription<control_msgs::msg::DynamicJointState>(
             this->joint_topic, rclcpp::SystemDefaultsQoS(),
             std::bind(&ChassisTeleop::joint_callback, this, std::placeholders::_1));
+    this->joint_state_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
-    //get y_max_speed
-    if (this->get_parameter("y_max_speed").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "y_max_speed type must be double");
-        return CallbackReturn::FAILURE;
-    }
-    this->y_max_speed = this->get_parameter("y_max_speed").as_double();
+    //get gimbal_follow_set_topic
+    this->gimbal_follow_set_topic = this->get_parameter("gimbal_follow_set_topic").as_string();
+    this->gimbal_follow_set_publisher = this->create_publisher<std_msgs::msg::Float64>(this->gimbal_follow_set_topic,
+                                                                                       rclcpp::SystemDefaultsQoS());
+
+    //get gimbal_follow_fdb_topic
+    this->gimbal_follow_fdb_topic = this->get_parameter("gimbal_follow_fdb_topic").as_string();
+    this->gimbal_follow_sub = this->create_subscription<gary_msgs::msg::PID>(
+            this->gimbal_follow_fdb_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisTeleop::gimbal_follow_callback, this, std::placeholders::_1));
+    this->gimbal_follow_pid_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
     //get x_max_speed
-    if (this->get_parameter("x_max_speed").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "x_max_speed type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->x_max_speed = this->get_parameter("x_max_speed").as_double();
 
+    //get y_max_speed
+    this->y_max_speed = this->get_parameter("y_max_speed").as_double();
+
     //get rotate_max_speed
-    if (this->get_parameter("rotate_max_speed").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "rotate_max_speed type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->rotate_max_speed = this->get_parameter("rotate_max_speed").as_double();
 
     //get x_max_accel
-    if (this->get_parameter("x_max_accel").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "x_max_accel type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->x_max_accel = this->get_parameter("x_max_accel").as_double();
+    this->x_filter = std::make_shared<gary_chassis::First_orderFilter>(this->x_max_accel);
 
     //get y_max_accel
-    if (this->get_parameter("y_max_accel").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "y_max_accel type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->y_max_accel = this->get_parameter("y_max_accel").as_double();
-
-    this->x_filter = std::make_shared<gary_chassis::First_orderFilter>(this->x_max_accel);
     this->y_filter = std::make_shared<gary_chassis::First_orderFilter>(this->y_max_accel);
+
+    //get use_break
+    this->use_break = this->get_parameter("use_break").as_bool();
+
+    //get update_rate
+    this->update_rate = this->get_parameter("update_rate").as_double();
+
+    //get yaw_encoder_bias
+    this->yaw_encoder_bias = this->get_parameter("yaw_encoder_bias").as_double();
 
     RCLCPP_INFO(this->get_logger(), "configured");
 
@@ -116,43 +91,65 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
 CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
-    this->cmd_publisher.reset();
-    this->angle_pid_set_pub.reset();
+    //destroy objects
+    this->twist_publisher.reset();
+    this->gimbal_follow_set_publisher.reset();
     this->rc_subscriber.reset();
-    this->angle_follow_sub.reset();
+    this->joint_subscriber.reset();
+    this->gimbal_follow_sub.reset();
     this->x_filter.reset();
     this->y_filter.reset();
-    RCLCPP_INFO(this->get_logger(), "cleaning up");
 
+    RCLCPP_INFO(this->get_logger(), "cleaning up");
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn ChassisTeleop::on_activate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-    this->cmd_publisher->on_activate();
-    this->angle_pid_set_pub->on_activate();
-    RCLCPP_INFO(this->get_logger(), "activated");
 
+    //activate lifecycle publisher
+    this->twist_publisher->on_activate();
+    this->gimbal_follow_set_publisher->on_activate();
+
+    //set chassis mode initial state
+    this->chassis_mode = CHASSIS_MODE_ZERO_FORCE;
+    this->last_chassis_mode = CHASSIS_MODE_NORMAL;
+    this->last_sw_state = gary_msgs::msg::DR16Receiver::SW_DOWN;
+
+    //create timer
+    this->timer_update = this->create_wall_timer(1000ms / this->update_rate, [this] { update(); });
+
+    RCLCPP_INFO(this->get_logger(), "activated");
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn ChassisTeleop::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-    this->cmd_publisher->on_deactivate();
-    this->angle_pid_set_pub->on_deactivate();
-    RCLCPP_INFO(this->get_logger(), "deactivated");
 
+    //deactivate lifecycle publisher
+    this->twist_publisher->on_deactivate();
+    this->gimbal_follow_set_publisher->on_deactivate();
+
+    //destroy timer
+    this->timer_update.reset();
+
+    RCLCPP_INFO(this->get_logger(), "deactivated");
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
-    if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
-    if (this->angle_pid_set_pub.get() != nullptr) this->angle_pid_set_pub.reset();
+
+    //destroy objects
+    if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
+    if (this->gimbal_follow_set_publisher.get() != nullptr) this->gimbal_follow_set_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
-    if (this->angle_follow_sub.get() != nullptr) this->angle_follow_sub.reset();
+    if (this->joint_subscriber.get() != nullptr) this->joint_subscriber.reset();
+    if (this->gimbal_follow_sub.get() != nullptr) this->gimbal_follow_sub.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
+    if (this->timer_update != nullptr) this->timer_update->reset();
+
     RCLCPP_INFO(this->get_logger(), "shutdown");
     return CallbackReturn::SUCCESS;
 }
@@ -160,133 +157,176 @@ CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previou
 CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
-    if (this->cmd_publisher.get() != nullptr) this->cmd_publisher.reset();
-    if (this->angle_pid_set_pub.get() != nullptr) this->angle_pid_set_pub.reset();
+    //destroy objects
+    if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
+    if (this->gimbal_follow_set_publisher.get() != nullptr) this->gimbal_follow_set_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
-    if (this->angle_follow_sub.get() != nullptr) this->angle_follow_sub.reset();
+    if (this->joint_subscriber.get() != nullptr) this->joint_subscriber.reset();
+    if (this->gimbal_follow_sub.get() != nullptr) this->gimbal_follow_sub.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
+    if (this->timer_update != nullptr) this->timer_update->reset();
+
     RCLCPP_INFO(this->get_logger(), "error");
     return CallbackReturn::SUCCESS;
 }
 
-void ChassisTeleop::angle_follow_callback(gary_msgs::msg::PID::SharedPtr msg) {
-    angle_follow_pid = *msg;
+void ChassisTeleop::gimbal_follow_callback(gary_msgs::msg::PID::SharedPtr msg) {
+    this->gimbal_follow_pid = *msg;
+    this->gimbal_follow_pid_timestamp = this->get_clock()->now();
 }
-void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state) {
 
-        for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-            if (joint_state->joint_names[i] == "gimbal_yaw") {
-                for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j) {
-                    if (joint_state->interface_values[i].interface_names[j] == "encoder") {
-                        encoder = joint_state->interface_values[i].values[j];
-                        double origin = joint_state->interface_values[i].values[j];
-                        double fixed = origin;
-                        fixed = origin + 1.222581;
-                        if (fixed < 0) fixed += 6.28;
-                        if (fixed > PI) fixed -= 2 * PI;//转换为-PI到PI
-                        if (origin > PI) origin -= 2 * PI;
-                        gary_chassis::yaw.relative_angle = origin;
-                        static int flag_ecd1 = 0;
-                        if (flag_ecd1 == 0) {
-                            gary_chassis::yaw.relative_angle_pre = origin;
-                            flag_ecd1 = 1;
-                        }
+void ChassisTeleop::joint_callback(control_msgs::msg::DynamicJointState::SharedPtr msg) {
+    this->joint_state = *msg;
+    this->joint_state_timestamp = this->get_clock()->now();
+}
+
+void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
+    this->rc = *msg;
+    this->rc_timestamp = this->get_clock()->now();
+}
+
+void ChassisTeleop::update() {
+
+    rclcpp::Time time_now = this->get_clock()->now();
+
+    bool gimbal_follow_pid_available = (time_now - this->gimbal_follow_pid_timestamp).seconds() <= 0.5;
+    bool joint_state_available = (time_now - this->joint_state_timestamp).seconds() <= 0.5;
+    bool rc_available = (time_now - this->rc_timestamp).seconds() <= 0.5;
+
+    double relative_angle;
+
+    if (joint_state_available) {
+        //get yaw motor encoder and calc relative_angle
+        for (unsigned long i = 0; i < this->joint_state.joint_names.size(); ++i) {
+            if (this->joint_state.joint_names[i] == "gimbal_yaw") {
+                for (unsigned long j = 0; j < this->joint_state.interface_values[i].interface_names.size(); ++j) {
+                    if (this->joint_state.interface_values[i].interface_names[j] == "encoder") {
+                        relative_angle = this->yaw_encoder_bias - this->joint_state.interface_values[i].values[j];
                     }
                 }
             }
         }
+        static bool flag_first = false;
+        static double encoder_position_transform = 0;
 
-    if(!angle_pid_set_pub->is_activated()) return;
-    std_msgs::msg::Float64 angle_data;
-    static int f2 = 0;
-    if(!f2)
-    {
-        foward_position = abs(encoder - foward_encoder);
-        foward_if = encoder - foward_encoder;
-        f2 = 1;
-    }
-   if(foward_if < 0){
-        angle_data.data = foward_position;
-    }else if(foward_if >= 0)
-    {
-        angle_data.data = -foward_position;
-    }
-   angle_pid_set_pub->publish(angle_data);
+        //calc encoder_position_transform in the first time
+        if (!flag_first) {
+            encoder_position_transform = relative_angle;
+            flag_first = true;
+        }
 
+        //pub gimbal_follow_pid set
+        std_msgs::msg::Float64 angle_data;
+        angle_data.data = encoder_position_transform;
+        this->gimbal_follow_set_publisher->publish(angle_data);
+    }
+
+    if (rc_available) {
+        double vx_set, vy_set, az_set;
+        geometry_msgs::msg::Twist twist;
+
+        //mode switch
+        if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN &&
+            this->last_sw_state == gary_msgs::msg::DR16Receiver::SW_MID) {
+
+            //switch from middle to down
+            this->last_chassis_mode = this->chassis_mode;
+            this->chassis_mode = CHASSIS_MODE_ZERO_FORCE;
+            RCLCPP_INFO(this->get_logger(), "enter zero force mode");
+
+        } else if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_MID &&
+                   this->last_sw_state == gary_msgs::msg::DR16Receiver::SW_DOWN) {
+
+            //switch from down to middle
+            this->chassis_mode = this->last_chassis_mode;
+            RCLCPP_INFO(this->get_logger(), "exit zero force mode");
+
+        } else if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_MID &&
+                   this->last_sw_state == gary_msgs::msg::DR16Receiver::SW_UP) {
+
+            //switch from up to middle
+            switch (this->chassis_mode) {
+                case CHASSIS_MODE_ZERO_FORCE:
+                    break;
+                case CHASSIS_MODE_NORMAL:
+                    this->chassis_mode = CHASSIS_MODE_FOLLOW_GIMBAL;
+                    RCLCPP_INFO(this->get_logger(), "switch to follow gimbal mode");
+                    break;
+                case CHASSIS_MODE_FOLLOW_GIMBAL:
+                    this->chassis_mode = CHASSIS_MODE_SPIN;
+                    RCLCPP_INFO(this->get_logger(), "switch to spin mode");
+                    break;
+                case CHASSIS_MODE_SPIN:
+                    this->chassis_mode = CHASSIS_MODE_NORMAL;
+                    RCLCPP_INFO(this->get_logger(), "switch to normal mode");
+                    break;
+            }
+        }
+        this->last_sw_state = this->rc.sw_right;
+
+        if (joint_state_available && gimbal_follow_pid_available &&
+            (this->chassis_mode == CHASSIS_MODE_FOLLOW_GIMBAL || this->chassis_mode == CHASSIS_MODE_SPIN)) {
+            this->chassis_mode = CHASSIS_MODE_NORMAL;
+            RCLCPP_WARN(this->get_logger(), "switch to normal mode due to data unavailable");
+        }
+
+        //joystick control
+        vx_set = this->rc.ch_left_y * x_max_speed;
+        vy_set = -this->rc.ch_left_x * y_max_speed;
+        az_set = -this->rc.ch_wheel * rotate_max_speed;
+
+        //keyboard control
+        if (this->rc.key_w) {
+            vx_set = this->y_max_speed;
+        } else if (this->rc.key_s) {
+            vx_set = -this->y_max_speed;
+        } else if (this->rc.key_a) {
+            vy_set = this->y_max_speed;
+        } else if (this->rc.key_d) {
+            vy_set = -this->y_max_speed;
+        }
+        if (this->rc.key_shift) {
+            az_set = this->rotate_max_speed;
+        }
+
+        //speed filter
+        if (this->use_break && vx_set == 0) this->x_filter->reset();
+        if (this->use_break && vy_set == 0) this->y_filter->reset();
+        vx_set = this->x_filter->first_order_filter(vx_set);
+        vy_set = this->y_filter->first_order_filter(vy_set);
+
+        //map vector to gimbal direction
+        double sin_yaw, cos_yaw;
+        double gimbal_vx, gimbal_vy;
+        sin_yaw = sin(relative_angle);
+        cos_yaw = cos(relative_angle);
+        gimbal_vx = cos_yaw * vx_set + sin_yaw * vy_set;
+        gimbal_vy = -sin_yaw * vx_set + cos_yaw * vy_set;
+
+        switch (this->chassis_mode) {
+            case CHASSIS_MODE_ZERO_FORCE:
+                return;
+            case CHASSIS_MODE_NORMAL:
+                twist.linear.x = vx_set;
+                twist.linear.y = vy_set;
+                twist.angular.z = az_set;
+                break;
+            case CHASSIS_MODE_FOLLOW_GIMBAL:
+                twist.linear.x = gimbal_vx;
+                twist.linear.y = gimbal_vy;
+                twist.angular.z = this->gimbal_follow_pid.out;
+                break;
+            case CHASSIS_MODE_SPIN:
+                twist.linear.x = gimbal_vx;
+                twist.linear.y = gimbal_vy;
+                twist.angular.z = rotate_max_speed;
+                break;
+        }
+
+        this->twist_publisher->publish(twist);
+    }
 }
-void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
-    if (!this->cmd_publisher->is_activated()) return;
-    //RCLCPP_INFO(this->get_logger(), "encoder %f position %f", encoder,position);
-    RC_control = *msg;
-    double vx_set_control = 0,vy_set_control = 0,az_set_control = 0;
-    double vx_set = 0, vy_set = 0, az_set = 0;
-    double sin_yaw = 0, cos_yaw = 0;
-    double vx_filter_output = 0,vy_filter_output = 0;
-    vx_set_control = RC_control.ch_left_y * x_max_speed;
-    vy_set_control = -RC_control.ch_left_x * y_max_speed;
-    az_set_control = -RC_control.ch_wheel * rotate_max_speed;
-    //键盘控制
-    if(RC_control.key_w)
-    {
-        vx_set_control = y_max_speed;
-    }else if(RC_control.key_s)
-    {
-        vx_set_control = -y_max_speed;
-    }else if(RC_control.key_a)
-    {
-        vy_set_control = -y_max_speed;
-    }else if(RC_control.key_d)
-    {
-        vy_set_control = y_max_speed;
-    }
-
-    if (vx_set_control == 0) x_filter->reset();
-    if (vy_set_control == 0) y_filter->reset();
-    vx_filter_output = x_filter->first_order_filter(vx_set_control);
-    vy_filter_output = y_filter->first_order_filter(vy_set_control);
-
-    //遥控器控制
-    if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
-        return;
-    }
-       //不跟随云台
-    else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
-        az_set = az_set_control;
-        twist.linear.x = vx_filter_output;
-        twist.linear.y = vy_filter_output;
-        twist.angular.z = az_set;
-    }
-     //跟随云台
-      else if (RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_MID) {
-        sin_yaw = 0, cos_yaw = 0;
-        sin_yaw = sin(foward_encoder-gary_chassis::yaw.relative_angle);
-        cos_yaw = cos(foward_encoder-gary_chassis::yaw.relative_angle);
-        vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
-        vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
-        az_set = angle_follow_pid.out;
-        twist.linear.x = vx_set;
-        twist.linear.y = vy_set;
-        twist.angular.z = az_set;
-      }
-        //swing
-/*    else if(RC_control.sw_right == gary_msgs::msg::DR16Receiver::SW_UP)
-    {
-
-        sin_yaw = 0, cos_yaw = 0;
-        sin_yaw = sin(foward_encoder-gary_chassis::yaw.relative_angle);
-        cos_yaw = cos(foward_encoder-gary_chassis::yaw.relative_angle);
-        vx_set = cos_yaw * vx_filter_output + sin_yaw * vy_filter_output;
-        vy_set = -sin_yaw * vx_filter_output + cos_yaw * vy_filter_output;
-
-        az_set = rotate_max_speed;
-        twist.linear.x = vx_set;
-        twist.linear.y = vy_set;
-        twist.angular.z = az_set;
-    }*/
-    cmd_publisher->publish(twist);
-}
-
 
 int main(int argc, char const *const argv[]) {
     rclcpp::init(argc, argv);
