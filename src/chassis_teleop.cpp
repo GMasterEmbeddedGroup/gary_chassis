@@ -218,7 +218,15 @@ void ChassisTeleop::update() {
 
         //pub gimbal_follow_pid set
         std_msgs::msg::Float64 angle_data;
-        angle_data.data = encoder_position_transform;
+        double pid_set = encoder_position_transform;
+
+        //prevent chassis spin multiple times when following gimbal
+        if (gimbal_follow_pid_available) {
+            while (pid_set - this->gimbal_follow_pid.feedback > M_PI) pid_set -= 2 * M_PI;
+            while (pid_set - this->gimbal_follow_pid.feedback < -M_PI) pid_set += 2 * M_PI;
+        }
+
+        angle_data.data = pid_set;
         this->gimbal_follow_set_publisher->publish(angle_data);
     }
 
