@@ -265,7 +265,7 @@ void ChassisTeleop::update() {
         }
         this->last_sw_state = this->rc.sw_right;
 
-        if (joint_state_available && gimbal_follow_pid_available &&
+        if (!joint_state_available && !gimbal_follow_pid_available &&
             (this->chassis_mode == CHASSIS_MODE_FOLLOW_GIMBAL || this->chassis_mode == CHASSIS_MODE_SPIN)) {
             this->chassis_mode = CHASSIS_MODE_NORMAL;
             RCLCPP_WARN(this->get_logger(), "switch to normal mode due to data unavailable");
