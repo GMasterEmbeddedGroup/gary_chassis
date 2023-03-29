@@ -17,8 +17,8 @@ std::map<std::string, double> OmniKinematics::forward_solve(const std::map<std::
     double rf = wheel_speed.at("right_front");
     double rb = wheel_speed.at("right_back");
 
-    double vx = (-rf + lf + lb - rb) / 4 * this->r *sqrt(2);
-    double vy = (-rf - lf + lb + rb) / 4 * this->r *sqrt(2);
+    double vx = (-rf + lf + lb - rb) / 4 * this->r /sqrt(2);
+    double vy = (-rf - lf + lb + rb) / 4 * this->r /sqrt(2);
     double az = (-rf - lf - lb - rb) / 2 * this->r / (this->a + this->b);
 
     chassis_speed.insert(std::make_pair("vx", vx));
@@ -35,10 +35,10 @@ std::map<std::string, double> OmniKinematics::inverse_solve(const std::map<std::
     double vy = chassis_speed.at("vy");
     double az = chassis_speed.at("az");
     if (wheel_offline == WHEEL_OFFLINE_NONE) {
-        double rf = (- vx * sqrt(2)/2 - vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
-        double lf = (+ vx * sqrt(2)/2 - vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
-        double lb = (+ vx * sqrt(2)/2 + vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
-        double rb = (- vx * sqrt(2)/2 + vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
+        double rf = (- vx * sqrt(2) - vy * sqrt(2) + az * (a + b)/2) / this->r;
+        double lf = (+ vx * sqrt(2) - vy * sqrt(2) + az * (a + b)/2) / this->r;
+        double lb = (+ vx * sqrt(2) + vy * sqrt(2) + az * (a + b)/2) / this->r;
+        double rb = (- vx * sqrt(2) + vy * sqrt(2) + az * (a + b)/2) / this->r;
 
         wheel_speed.insert(std::make_pair("right_front", rf));
         wheel_speed.insert(std::make_pair("left_front", lf));
