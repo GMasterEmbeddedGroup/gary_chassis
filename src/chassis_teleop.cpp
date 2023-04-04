@@ -197,12 +197,20 @@ void ChassisTeleop::update() {
     double relative_angle;
 
     if (joint_state_available) {
+
+        bool offline = true;
         //get yaw motor encoder and calc relative_angle
         for (unsigned long i = 0; i < this->joint_state.joint_names.size(); ++i) {
             if (this->joint_state.joint_names[i] == "gimbal_yaw") {
                 for (unsigned long j = 0; j < this->joint_state.interface_values[i].interface_names.size(); ++j) {
+
+                    if (this->joint_state.interface_values[i].interface_names[j] == "offline" && this->joint_state.interface_values[i].values[j] == 0.0f) {
+                        offline = false;
+                    }
+
                     if (this->joint_state.interface_values[i].interface_names[j] == "encoder") {
                         relative_angle = this->yaw_encoder_bias - this->joint_state.interface_values[i].values[j];
+
                     }
                 }
             }
@@ -211,7 +219,7 @@ void ChassisTeleop::update() {
         static double encoder_position_transform = 0;
 
         //calc encoder_position_transform in the first time
-        if (!flag_first) {
+        if (!flag_first && !offline) {
             encoder_position_transform = relative_angle;
             flag_first = true;
         }
