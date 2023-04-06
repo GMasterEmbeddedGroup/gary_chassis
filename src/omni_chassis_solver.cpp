@@ -321,11 +321,11 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
         wheel_speed = this->omni_kinematics->inverse_solve(chassis_speed, WHEEL_OFFLINE_RB);
     }
     //odometry calculate
-    chassis_speed_odom = omni_kinematics->forward_solve(wheel_speed_odom,WHEEL_OFFLINE_NONE);
+    //chassis_speed_odom = omni_kinematics->forward_solve(wheel_speed_odom,WHEEL_OFFLINE_NONE);
 
 
     std_msgs::msg::Float64 data;
-    nav_msgs::msg::Odometry omni_odom_data;
+  /*  nav_msgs::msg::Odometry omni_odom_data;
     omni_current_time = this->get_clock()->now();
     double dt = 0;
     dt =  (omni_current_time - omni_last_time).seconds();
@@ -342,7 +342,7 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     if(z>0)z_angle = z+0.16;
     if(z<0)z_angle = z-0.17;
 
-    RCLCPP_INFO(this->get_logger(), "x %f y %f z %f z_angle %f", x, y, z, z_angle);
+    //RCLCPP_INFO(this->get_logger(), "x %f y %f z %f z_angle %f", x, y, z, z_angle);
 
     omni_odom_data.header.frame_id = "odom";
     omni_odom_data.header.stamp = omni_current_time;
@@ -353,7 +353,7 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     omni_odom_data.twist.twist.linear.x = chassis_speed_odom["vx"];
     omni_odom_data.twist.twist.linear.y = chassis_speed_odom["vy"];
     omni_odom_data.twist.twist.angular.z = chassis_speed_odom["az"];
-
+*/
     //publish the needed motor msg
     if (wheel_speed.count("left_front") == 1) {
         data.data = wheel_speed["left_front"];
@@ -371,8 +371,8 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
         data.data = wheel_speed["right_back"];
         this->rb_publisher->publish(data);
     }
-    this->omni_odom_publisher->publish(omni_odom_data);
-    omni_last_time = omni_current_time;
+    //this->omni_odom_publisher->publish(omni_odom_data);
+    //omni_last_time = omni_current_time;
 }
 
 

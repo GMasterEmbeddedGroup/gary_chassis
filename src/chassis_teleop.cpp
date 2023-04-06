@@ -10,9 +10,11 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     //declare params
     this->declare_parameter("twist_pub_topic", "/cmd_vel");
     this->declare_parameter("remote_control_topic", "/remote_control");
+    this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
     this->declare_parameter("joint_topic", "/dynamic_joint_states");
     this->declare_parameter("gimbal_follow_set_topic", "/gimbal_follow_pid/cmd");
     this->declare_parameter("gimbal_follow_fdb_topic", "/gimbal_follow_pid/pid");
+    this->declare_parameter("motor_yaw_hw_id");
     this->declare_parameter("x_max_speed", 2.0f);
     this->declare_parameter("y_max_speed", 2.0f);
     this->declare_parameter("rotate_max_speed", 1.0f);
@@ -30,6 +32,11 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
     this->twist_pub_topic = this->get_parameter("twist_pub_topic").as_string();
     this->twist_publisher = this->create_publisher<geometry_msgs::msg::Twist>(this->twist_pub_topic,
                                                                               rclcpp::SystemDefaultsQoS());
+    //get diag
+    this->diagnostic_topic = this->get_parameter("diagnostic_topic").as_string();
+    this->diag_subscriber = this->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
+            this->diagnostic_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisTeleop::diag_callback, this, std::placeholders::_1));
 
     //get remote_control_topic
     this->remote_control_topic = this->get_parameter("remote_control_topic").as_string();
@@ -57,6 +64,8 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
             std::bind(&ChassisTeleop::gimbal_follow_callback, this, std::placeholders::_1));
     this->gimbal_follow_pid_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
+    //get offline yaw if
+    this->motor_yaw_hw_id = this->get_parameter("motor_yaw_hw_id").as_string();
     //get x_max_speed
     this->x_max_speed = this->get_parameter("x_max_speed").as_double();
 
@@ -94,6 +103,7 @@ CallbackReturn ChassisTeleop::on_cleanup(const rclcpp_lifecycle::State &previous
     //destroy objects
     this->twist_publisher.reset();
     this->gimbal_follow_set_publisher.reset();
+    this->diag_subscriber.reset();
     this->rc_subscriber.reset();
     this->joint_subscriber.reset();
     this->gimbal_follow_sub.reset();
@@ -142,6 +152,7 @@ CallbackReturn ChassisTeleop::on_shutdown(const rclcpp_lifecycle::State &previou
 
     //destroy objects
     if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
+    if (this->diag_subscriber.get() != nullptr) this->diag_subscriber.reset();
     if (this->gimbal_follow_set_publisher.get() != nullptr) this->gimbal_follow_set_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->joint_subscriber.get() != nullptr) this->joint_subscriber.reset();
@@ -159,6 +170,7 @@ CallbackReturn ChassisTeleop::on_error(const rclcpp_lifecycle::State &previous_s
 
     //destroy objects
     if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
+    if (this->diag_subscriber.get() != nullptr) this->diag_subscriber.reset();
     if (this->gimbal_follow_set_publisher.get() != nullptr) this->gimbal_follow_set_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->joint_subscriber.get() != nullptr) this->joint_subscriber.reset();
@@ -186,6 +198,11 @@ void ChassisTeleop::rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg) {
     this->rc_timestamp = this->get_clock()->now();
 }
 
+void ChassisTeleop::diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg) {
+    //store the data
+    this->diagnostic_array = *msg;
+}
+
 void ChassisTeleop::update() {
 
     rclcpp::Time time_now = this->get_clock()->now();
@@ -195,7 +212,11 @@ void ChassisTeleop::update() {
     bool rc_available = (time_now - this->rc_timestamp).seconds() <= 0.5;
 
     double relative_angle;
-
+    bool yaw_flag = false;
+    //get offline yaw if
+    for(const auto&i : this->diagnostic_array.status) {
+        if (i.hardware_id == this->motor_yaw_hw_id && i.level == diagnostic_msgs::msg::DiagnosticStatus::OK) yaw_flag = true;
+    }
     if (joint_state_available) {
 
         bool offline = true;
@@ -266,8 +287,14 @@ void ChassisTeleop::update() {
                 case CHASSIS_MODE_ZERO_FORCE:
                     break;
                 case CHASSIS_MODE_NORMAL:
-                    this->chassis_mode = CHASSIS_MODE_FOLLOW_GIMBAL;
-                    RCLCPP_INFO(this->get_logger(), "switch to follow gimbal mode");
+                    if(yaw_flag) {
+                        this->chassis_mode = CHASSIS_MODE_FOLLOW_GIMBAL;
+                        RCLCPP_INFO(this->get_logger(), "switch to follow gimbal mode");
+                    }else
+                    {
+                        this->chassis_mode = CHASSIS_MODE_NORMAL;
+                        RCLCPP_INFO(this->get_logger(), "switch failed");
+                    }
                     break;
                 case CHASSIS_MODE_FOLLOW_GIMBAL:
                     this->chassis_mode = CHASSIS_MODE_SPIN;
@@ -293,6 +320,7 @@ void ChassisTeleop::update() {
         az_set = -this->rc.ch_wheel * rotate_max_speed;
 
         //keyboard control
+        bool swing_flag = false;
         if (this->rc.key_w) {
             vx_set = this->y_max_speed;
         } else if (this->rc.key_s) {
@@ -304,6 +332,7 @@ void ChassisTeleop::update() {
         }
         if (this->rc.key_shift) {
             az_set = this->rotate_max_speed;
+            swing_flag = true;
         }
 
         //speed filter
@@ -331,7 +360,14 @@ void ChassisTeleop::update() {
             case CHASSIS_MODE_FOLLOW_GIMBAL:
                 twist.linear.x = gimbal_vx;
                 twist.linear.y = gimbal_vy;
-                twist.angular.z = this->gimbal_follow_pid.out;
+                if(!swing_flag)
+                {
+                    twist.angular.z = this->gimbal_follow_pid.out;
+                }else
+                {
+                    twist.angular.z = rotate_max_speed;
+                }
+
                 break;
             case CHASSIS_MODE_SPIN:
                 twist.linear.x = gimbal_vx;

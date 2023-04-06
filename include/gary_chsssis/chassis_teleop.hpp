@@ -42,12 +42,15 @@ namespace gary_chassis {
         //callbacks
         void rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg);
         void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr msg);
+        void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
         void gimbal_follow_callback(gary_msgs::msg::PID::SharedPtr msg);
         void update();
 
         //params
         std::string twist_pub_topic;
         std::string remote_control_topic;
+        std::string diagnostic_topic;
+        std::string motor_yaw_hw_id;
         std::string joint_topic;
         std::string gimbal_follow_set_topic;
         std::string gimbal_follow_fdb_topic;
@@ -68,6 +71,7 @@ namespace gary_chassis {
         rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
         rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_subscriber;
         rclcpp::Subscription<gary_msgs::msg::PID>::SharedPtr gimbal_follow_sub;
+        rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_subscriber;
 
         //timer
         rclcpp::TimerBase::SharedPtr timer_update;
@@ -83,6 +87,7 @@ namespace gary_chassis {
         rclcpp::Time joint_state_timestamp;
         gary_msgs::msg::PID gimbal_follow_pid;
         rclcpp::Time gimbal_follow_pid_timestamp;
+        diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
 
         chassis_mode_e chassis_mode{};
         chassis_mode_e last_chassis_mode{};

@@ -147,7 +147,6 @@ ament_target_dependencies(
         rclcpp_lifecycle
         control_msgs
         nav_msgs
-        geometry_msgs
         std_msgs
         geometry_msgs
         diagnostic_msgs
@@ -155,6 +154,39 @@ ament_target_dependencies(
 
 rclcpp_components_register_nodes(omni_chassis_solver_lib "gary_chassis::OmniChassisSolver")
 
+add_executable(omni_odom src/omni_odometry.cpp src/utils/omni_kinematics.cpp)
+
+target_include_directories(omni_odom PRIVATE include)
+
+ament_target_dependencies(
+        omni_odom
+        rclcpp
+        rclcpp_components
+        rclcpp_lifecycle
+        control_msgs
+        nav_msgs
+        std_msgs
+        geometry_msgs
+        diagnostic_msgs
+)
+
+add_library(omni_odom_lib SHARED src/omni_odometry.cpp src/utils/omni_kinematics.cpp)
+
+target_include_directories(omni_odom_lib PRIVATE include)
+
+ament_target_dependencies(
+        omni_odom_lib
+        rclcpp
+        rclcpp_components
+        rclcpp_lifecycle
+        control_msgs
+        nav_msgs
+        geometry_msgs
+        std_msgs
+        diagnostic_msgs
+)
+
+rclcpp_components_register_nodes(omni_odom_lib "gary_chassis::OmniOdom")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -167,11 +199,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop omni_chassis_solver
+install(TARGETS mecanum_chassis_solver chassis_teleop omni_chassis_solver omni_odom
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omni_chassis_solver_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omni_chassis_solver_lib omni_odom_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
