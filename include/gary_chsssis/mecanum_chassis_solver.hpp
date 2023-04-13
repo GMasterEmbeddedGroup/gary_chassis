@@ -25,13 +25,17 @@ namespace gary_chassis {
         CallbackReturn on_shutdown(const rclcpp_lifecycle::State & previous_state) override;
         CallbackReturn on_error(const rclcpp_lifecycle::State & previous_state) override;
 
+        //callback group
+        rclcpp::CallbackGroup::SharedPtr cb_group;
+
+        //callbacks
         void cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg);
         void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
         void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state);
+
         //param
         std::string cmd_topic;
         std::string diagnostic_topic;
-
         std::string odom_topic;
         std::string output_lf_topic;
         std::string output_lb_topic;
@@ -55,13 +59,15 @@ namespace gary_chassis {
         double b;
         double r;
 
+        //time log
         rclcpp::Time current_time,last_time;
+
         //subscriber
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscriber;
         rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_subscriber;
         rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_sub;
-        //publisher
 
+        //publisher
         rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lf_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lb_publisher;

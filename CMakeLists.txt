@@ -112,9 +112,31 @@ target_include_directories(chassis_power_control PRIVATE include)
 ament_target_dependencies(
         chassis_power_control
         rclcpp
-        control_msgs
+        diagnostic_msgs
+        lifecycle_msgs
+        rclcpp_lifecycle
+        rclcpp_components
         gary_msgs
+        geometry_msgs
 )
+
+
+add_library(chassis_power_control_lib SHARED src/chassis_power_control.cpp)
+
+target_include_directories(chassis_power_control_lib PRIVATE include)
+
+ament_target_dependencies(
+        chassis_power_control_lib
+        rclcpp
+        diagnostic_msgs
+        lifecycle_msgs
+        rclcpp_lifecycle
+        rclcpp_components
+        gary_msgs
+        geometry_msgs
+)
+
+rclcpp_components_register_nodes(chassis_power_control_lib "gary_chassis::ChassisPowerControl")
 
 
 add_executable(omni_chassis_solver src/omni_chassis_solver.cpp src/utils/omni_kinematics.cpp)
@@ -199,11 +221,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop omni_chassis_solver omni_odom
+install(TARGETS mecanum_chassis_solver chassis_teleop chassis_power_control omni_chassis_solver omni_odom
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib omni_chassis_solver_lib omni_odom_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib chassis_power_control_lib omni_chassis_solver_lib omni_odom_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)

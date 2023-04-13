@@ -28,6 +28,11 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
 CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
+    //create callback group
+    this->cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    rclcpp::SubscriptionOptions sub_options;
+    sub_options.callback_group = cb_group;
+
     //get cmd_topic
     this->twist_pub_topic = this->get_parameter("twist_pub_topic").as_string();
     this->twist_publisher = this->create_publisher<geometry_msgs::msg::Twist>(this->twist_pub_topic,
@@ -36,20 +41,20 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
     this->diagnostic_topic = this->get_parameter("diagnostic_topic").as_string();
     this->diag_subscriber = this->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
             this->diagnostic_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisTeleop::diag_callback, this, std::placeholders::_1));
+            std::bind(&ChassisTeleop::diag_callback, this, std::placeholders::_1), sub_options);
 
     //get remote_control_topic
     this->remote_control_topic = this->get_parameter("remote_control_topic").as_string();
     this->rc_subscriber = this->create_subscription<gary_msgs::msg::DR16Receiver>(
             this->remote_control_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisTeleop::rc_callback, this, std::placeholders::_1));
+            std::bind(&ChassisTeleop::rc_callback, this, std::placeholders::_1), sub_options);
     this->rc_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
     //get joint_topic
     this->joint_topic = this->get_parameter("joint_topic").as_string();
     this->joint_subscriber = this->create_subscription<control_msgs::msg::DynamicJointState>(
             this->joint_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisTeleop::joint_callback, this, std::placeholders::_1));
+            std::bind(&ChassisTeleop::joint_callback, this, std::placeholders::_1), sub_options);
     this->joint_state_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
     //get gimbal_follow_set_topic
@@ -61,11 +66,12 @@ CallbackReturn ChassisTeleop::on_configure(const rclcpp_lifecycle::State &previo
     this->gimbal_follow_fdb_topic = this->get_parameter("gimbal_follow_fdb_topic").as_string();
     this->gimbal_follow_sub = this->create_subscription<gary_msgs::msg::PID>(
             this->gimbal_follow_fdb_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&ChassisTeleop::gimbal_follow_callback, this, std::placeholders::_1));
+            std::bind(&ChassisTeleop::gimbal_follow_callback, this, std::placeholders::_1), sub_options);
     this->gimbal_follow_pid_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
     //get offline yaw if
     this->motor_yaw_hw_id = this->get_parameter("motor_yaw_hw_id").as_string();
+
     //get x_max_speed
     this->x_max_speed = this->get_parameter("x_max_speed").as_double();
 
@@ -127,7 +133,7 @@ CallbackReturn ChassisTeleop::on_activate(const rclcpp_lifecycle::State &previou
     this->last_sw_state = gary_msgs::msg::DR16Receiver::SW_DOWN;
 
     //create timer
-    this->timer_update = this->create_wall_timer(1000ms / this->update_rate, [this] { update(); });
+    this->timer_update = this->create_wall_timer(1000ms / this->update_rate, [this] { update(); }, this->cb_group);
 
     RCLCPP_INFO(this->get_logger(), "activated");
     return CallbackReturn::SUCCESS;

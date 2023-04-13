@@ -39,6 +39,9 @@ namespace gary_chassis {
 
         CallbackReturn on_error(const rclcpp_lifecycle::State &previous_state) override;
 
+        //callback group
+        rclcpp::CallbackGroup::SharedPtr cb_group;
+
         //callbacks
         void rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg);
         void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr msg);

@@ -1,147 +1,167 @@
-#include"rclcpp/rclcpp.hpp"
-#include "gary_msgs/msg/power_heat.hpp"
-#include "gary_msgs/msg/robot_status.hpp"
-#include "control_msgs/msg/dynamic_joint_state.hpp"
-#include <chrono>
+#include "gary_chsssis/chassis_power_control.hpp"
+
 
 using namespace std::chrono_literals;
 
-gary_msgs::msg::PowerHeat power;
-gary_msgs::msg::RobotStatus power_limit;
+using namespace gary_chassis;
 
-class PowerControl : public rclcpp::Node
-{
-public:
-    PowerControl() : Node("power_control")
-    {
-        power_sub_ = create_subscription<gary_msgs::msg::PowerHeat>("power",rclcpp::SystemDefaultsQoS(),
-                                                                    std::bind(&PowerControl::power_callback,this,std::placeholders::_1));
-        power_limit_sub = create_subscription<gary_msgs::msg::RobotStatus>("power_limit",rclcpp::SystemDefaultsQoS(),
-                                                                           std::bind(&PowerControl::powerlimit_callback,this,std::placeholders::_1));
-        timer_ = this->create_wall_timer(500ms,std::bind(&PowerControl::time_callback,this));
-        joint_sub = this->create_subscription<control_msgs::msg::DynamicJointState>(
-                    "/dynamic_joint_states", rclcpp::SystemDefaultsQoS(),
-                std::bind(&PowerControl::joint_callback, this, std::placeholders::_1));
 
-    }
-private:
-    void powerlimit_callback(gary_msgs::msg::RobotStatus::SharedPtr msg)
-    {
-        power_limit = *msg;
-    }
-    void power_callback(gary_msgs::msg::PowerHeat::SharedPtr msg)
-    {
-        power = *msg;
-    }
-
-    void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state){
-        for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-            if(joint_state->joint_names[i] == "chassis_lf")
-            {
-                for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
-                {
-                    if (joint_state->interface_values[i].interface_names[j] == "effort_raw")
-                    {
-                        this->lf_current = joint_state->interface_values[i].values[j];
-                    }
-                }
-            }
-        }
-        for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-            if(joint_state->joint_names[i] == "chassis_lb")
-            {
-                for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
-                {
-                    if (joint_state->interface_values[i].interface_names[j] == "effort_raw")
-                    {
-                        this->lb_current= joint_state->interface_values[i].values[j];
-                    }
-                }
-            }
-        }
-        for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-            if(joint_state->joint_names[i] == "chassis_rf")
-            {
-                for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
-                {
-                    if (joint_state->interface_values[i].interface_names[j] == "effort_raw")
-                    {
-                        this->rf_current = joint_state->interface_values[i].values[j];
-                    }
-                }
-            }
-        }
-        for (unsigned long i = 0; i < joint_state->joint_names.size(); ++i) {
-            if(joint_state->joint_names[i] == "chassis_rb")
-            {
-                for (unsigned long j = 0; j < joint_state->interface_values[i].interface_names.size(); ++j)
-                {
-                    if (joint_state->interface_values[i].interface_names[j] == "effort_raw")
-                    {
-                        this->rb_current = joint_state->interface_values[i].values[j];
-                    }
-                }
-            }
-        }
-    }
-    void time_callback()
-    {
-        const float warning_power_buffer = 50.0,warning_power = 40.0;
-        const float buffer_total_current_limit = 16000.0 , power_total_current_limit = 20000.0;
-        float total_current_limit = 0.0;
-        if(power.chassis_power_buffer < warning_power_buffer)
-        {
-            float power_scale;
-            if(power.chassis_power_buffer > 5.0)
-            {
-                power_scale = power.chassis_power_buffer / warning_power_buffer;
-            }
-            else{
-                power_scale = 5.0f / warning_power_buffer;
-            }
-            total_current_limit = buffer_total_current_limit * power_scale;
-        }
-    else{
-            if(power.chassis_power > 40.0)//warning_power
-            {
-                float power_scale;
-
-                if(power.chassis_power < 80.0)//power_limit
-                {
-
-                    power_scale = (80.0 - power.chassis_power) / (80.0 - 40.0);
-
-                }
-                else{
-                    power_scale = 0.0f;
-                }
-
-                total_current_limit = buffer_total_current_limit + power_total_current_limit * power_scale;
-            }
-            else{
-                total_current_limit = buffer_total_current_limit + power_total_current_limit;
-            }
-    }
-    float total_current = lb_current + lf_current + rb_current + rf_current;
-        if(total_current > total_current_limit)
-        {
-            float current_scale = total_current_limit / total_current;
-
-        }
-    }
-    float lb_current;
-    float rb_current;
-    float rf_current;
-    float lf_current;
-    rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_sub;
-    rclcpp::Subscription<gary_msgs::msg::PowerHeat>::SharedPtr power_sub_;
-    rclcpp::Subscription<gary_msgs::msg::RobotStatus>::SharedPtr power_limit_sub;
-    rclcpp::TimerBase::SharedPtr timer_;
-};
-
-int main(int argc, char * argv[]){
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<PowerControl>());
-    rclcpp::shutdown();
-    return 0;
+ChassisPowerControl::ChassisPowerControl(const rclcpp::NodeOptions &options) : rclcpp_lifecycle::LifecycleNode(
+        "chassis_power_control", options) {
+    //declare params
+    this->declare_parameter("twist_pub_topic", "/cmd_vel_limited");
+    this->declare_parameter("twist_sub_topic", "/cmd_vel");
+    this->declare_parameter("power_heat_topic", "/referee/power_heat");
+    this->declare_parameter("robot_status_topic", "/referee/robot_status");
+    this->declare_parameter("buffer_control_level", 150.0f);
+    this->declare_parameter("buffer_min_level", 50.0f);
 }
+
+CallbackReturn ChassisPowerControl::on_configure(const rclcpp_lifecycle::State &previous_state) {
+    RCL_UNUSED(previous_state);
+
+    //create callback group
+    this->cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    rclcpp::SubscriptionOptions sub_options;
+    sub_options.callback_group = this->cb_group;
+
+    //get twist_pub_topic
+    this->twist_pub_topic = this->get_parameter("twist_pub_topic").as_string();
+    this->twist_publisher = this->create_publisher<geometry_msgs::msg::Twist>(this->twist_pub_topic,
+                                                                              rclcpp::SystemDefaultsQoS());
+    //get twist_sub_topic
+    this->twist_sub_topic = this->get_parameter("twist_sub_topic").as_string();
+    this->twist_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
+            this->twist_sub_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisPowerControl::twist_callback, this, std::placeholders::_1), sub_options);
+
+    //get power_heat_topic
+    this->power_heat_topic = this->get_parameter("power_heat_topic").as_string();
+    this->power_heat_subscriber = this->create_subscription<gary_msgs::msg::PowerHeat>(
+            this->power_heat_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisPowerControl::power_heat_callback, this, std::placeholders::_1), sub_options);
+
+    //get robot_status_topic
+    this->robot_status_topic = this->get_parameter("robot_status_topic").as_string();
+    this->robot_status_subscriber = this->create_subscription<gary_msgs::msg::RobotStatus>(
+            this->robot_status_topic, rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisPowerControl::robot_status_callback, this, std::placeholders::_1), sub_options);
+
+    //get buffer_control_level
+    this->buffer_control_level = this->get_parameter("buffer_control_level").as_double();
+
+    //get buffer_min_level
+    this->buffer_min_level = this->get_parameter("buffer_min_level").as_double();
+
+    RCLCPP_INFO(this->get_logger(), "configured");
+
+    return CallbackReturn::SUCCESS;
+}
+
+CallbackReturn ChassisPowerControl::on_cleanup(const rclcpp_lifecycle::State &previous_state) {
+    RCL_UNUSED(previous_state);
+
+    //destroy objects
+    this->twist_publisher.reset();
+    this->twist_subscriber.reset();
+    this->power_heat_subscriber.reset();
+    this->robot_status_subscriber.reset();
+
+    RCLCPP_INFO(this->get_logger(), "cleaning up");
+    return CallbackReturn::SUCCESS;
+}
+
+CallbackReturn ChassisPowerControl::on_activate(const rclcpp_lifecycle::State &previous_state) {
+    RCL_UNUSED(previous_state);
+
+    //activate lifecycle publisher
+    this->twist_publisher->on_activate();
+
+    RCLCPP_INFO(this->get_logger(), "activated");
+    return CallbackReturn::SUCCESS;
+}
+
+CallbackReturn ChassisPowerControl::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
+    RCL_UNUSED(previous_state);
+
+    //deactivate lifecycle publisher
+    this->twist_publisher->on_deactivate();
+
+    RCLCPP_INFO(this->get_logger(), "deactivated");
+    return CallbackReturn::SUCCESS;
+}
+
+CallbackReturn ChassisPowerControl::on_shutdown(const rclcpp_lifecycle::State &previous_state) {
+    RCL_UNUSED(previous_state);
+
+    //destroy objects
+    if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
+    if (this->twist_subscriber.get() != nullptr) this->twist_subscriber.reset();
+    if (this->power_heat_subscriber.get() != nullptr) this->power_heat_subscriber.reset();
+    if (this->robot_status_subscriber.get() != nullptr) this->robot_status_subscriber.reset();
+
+    RCLCPP_INFO(this->get_logger(), "shutdown");
+    return CallbackReturn::SUCCESS;
+}
+
+CallbackReturn ChassisPowerControl::on_error(const rclcpp_lifecycle::State &previous_state) {
+    RCL_UNUSED(previous_state);
+
+    //destroy objects
+    if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
+    if (this->twist_subscriber.get() != nullptr) this->twist_subscriber.reset();
+    if (this->power_heat_subscriber.get() != nullptr) this->power_heat_subscriber.reset();
+    if (this->robot_status_subscriber.get() != nullptr) this->robot_status_subscriber.reset();
+
+    RCLCPP_INFO(this->get_logger(), "error");
+    return CallbackReturn::SUCCESS;
+}
+
+
+void ChassisPowerControl::twist_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
+    geometry_msgs::msg::Twist twist;
+    twist.angular.x = msg->angular.x * this->scale_factor;
+    twist.angular.y = msg->angular.y * this->scale_factor;
+    twist.angular.z = msg->angular.z * this->scale_factor;
+    twist.linear.x = msg->linear.x * this->scale_factor;
+    twist.linear.y = msg->linear.y * this->scale_factor;
+    twist.linear.z = msg->linear.z * this->scale_factor;
+    this->twist_publisher->publish(twist);
+}
+
+
+void ChassisPowerControl::power_heat_callback(gary_msgs::msg::PowerHeat::SharedPtr msg) {
+    if (static_cast<double>(msg->chassis_power_buffer) > this->buffer_control_level) {
+        this->scale_factor = 1.0;
+    } else {
+        this->scale_factor = (static_cast<double>(msg->chassis_power_buffer) - this->buffer_min_level) /
+                             (this->buffer_control_level - this->buffer_min_level);
+    }
+    this->scale_factor = std::min<double>(this->scale_factor, 1.0f);
+
+}
+
+
+void ChassisPowerControl::robot_status_callback(gary_msgs::msg::RobotStatus::SharedPtr msg) {
+    this->max_power = msg->chassis_power_limit;
+}
+
+
+int main(int argc, char const *const argv[]) {
+    rclcpp::init(argc, argv);
+
+    rclcpp::executors::SingleThreadedExecutor exe;
+
+    std::shared_ptr<ChassisPowerControl> chassis_power_control = std::make_shared<ChassisPowerControl>(
+            rclcpp::NodeOptions());
+
+    exe.add_node(chassis_power_control->get_node_base_interface());
+
+    exe.spin();
+
+    rclcpp::shutdown();
+}
+
+#include "rclcpp_components/register_node_macro.hpp"
+
+RCLCPP_COMPONENTS_REGISTER_NODE(gary_chassis::ChassisPowerControl)

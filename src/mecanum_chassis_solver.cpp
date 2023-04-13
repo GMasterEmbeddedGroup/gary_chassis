@@ -25,127 +25,72 @@ MecanumChassisSolver::MecanumChassisSolver(const rclcpp::NodeOptions &options) :
 CallbackReturn MecanumChassisSolver::on_configure(const rclcpp_lifecycle::State &previous_state) {
     RCL_UNUSED(previous_state);
 
+    //create callback group
+    this->cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    rclcpp::SubscriptionOptions sub_options;
+    sub_options.callback_group = cb_group;
+
     //get cmd_topic
-    if (this->get_parameter("cmd_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "cmd_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->cmd_topic = this->get_parameter("cmd_topic").as_string();
     this->cmd_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
             this->cmd_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&MecanumChassisSolver::cmd_callback, this, std::placeholders::_1));
- //get joint_topic
-    if (this->get_parameter("joint_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "joint_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
+            std::bind(&MecanumChassisSolver::cmd_callback, this, std::placeholders::_1), sub_options);
+
+    //get joint_topic
     this->joint_topic = this->get_parameter("joint_topic").as_string();
     this->joint_sub = this->create_subscription<control_msgs::msg::DynamicJointState>(
             this->joint_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&MecanumChassisSolver::joint_callback, this, std::placeholders::_1));
+            std::bind(&MecanumChassisSolver::joint_callback, this, std::placeholders::_1), sub_options);
 
     //get diagnostic_topic
-    if (this->get_parameter("diagnostic_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "diagnostic_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->diagnostic_topic = this->get_parameter("diagnostic_topic").as_string();
     this->diag_subscriber = this->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
             this->diagnostic_topic, rclcpp::SystemDefaultsQoS(),
-            std::bind(&MecanumChassisSolver::diag_callback, this, std::placeholders::_1));
-
+            std::bind(&MecanumChassisSolver::diag_callback, this, std::placeholders::_1), sub_options);
 
     //get odom_topic
-    if (this->get_parameter("odom_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "odom_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->odom_topic = this->get_parameter("odom_topic").as_string();
     this->odom_publisher = this->create_publisher<nav_msgs::msg::Odometry>(this->odom_topic,
                                                                            rclcpp::SystemDefaultsQoS());
     //get output_lf_topic
-    if (this->get_parameter("output_lf_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "output_lf_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->output_lf_topic = this->get_parameter("output_lf_topic").as_string();
     this->lf_publisher = this->create_publisher<std_msgs::msg::Float64>(this->output_lf_topic,
                                                                         rclcpp::SystemDefaultsQoS());
 
     //get output_lb_topic
-    if (this->get_parameter("output_lb_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "output_lb_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->output_lb_topic = this->get_parameter("output_lb_topic").as_string();
     this->lb_publisher = this->create_publisher<std_msgs::msg::Float64>(this->output_lb_topic,
                                                                         rclcpp::SystemDefaultsQoS());
 
     //get output_rf_topic
-    if (this->get_parameter("output_rf_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "output_rf_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->output_rf_topic = this->get_parameter("output_rf_topic").as_string();
     this->rf_publisher = this->create_publisher<std_msgs::msg::Float64>(this->output_rf_topic,
                                                                         rclcpp::SystemDefaultsQoS());
 
     //get output_rb_topic
-    if (this->get_parameter("output_rb_topic").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "output_rb_topic type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->output_rb_topic = this->get_parameter("output_rb_topic").as_string();
     this->rb_publisher = this->create_publisher<std_msgs::msg::Float64>(this->output_rb_topic,
                                                                         rclcpp::SystemDefaultsQoS());
 
     //get motor_lf_hw_id
-    if (this->get_parameter("motor_lf_hw_id").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "motor_lf_hw_id type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->motor_lf_hw_id = this->get_parameter("motor_lf_hw_id").as_string();
 
     //get motor_lb_hw_id
-    if (this->get_parameter("motor_lb_hw_id").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "motor_lb_hw_id type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->motor_lb_hw_id = this->get_parameter("motor_lb_hw_id").as_string();
 
     //get motor_rf_hw_id
-    if (this->get_parameter("motor_rf_hw_id").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "motor_rf_hw_id type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->motor_rf_hw_id = this->get_parameter("motor_rf_hw_id").as_string();
 
     //get motor_rb_hw_id
-    if (this->get_parameter("motor_rb_hw_id").get_type() != rclcpp::PARAMETER_STRING) {
-        RCLCPP_ERROR(this->get_logger(), "motor_rb_hw_id type must be string");
-        return CallbackReturn::FAILURE;
-    }
     this->motor_rb_hw_id = this->get_parameter("motor_rb_hw_id").as_string();
 
     //get a
-    if (this->get_parameter("a").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "a type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->a = this->get_parameter("a").as_double();
 
     //get b
-    if (this->get_parameter("b").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "b type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->b = this->get_parameter("b").as_double();
 
     //get r
-    if (this->get_parameter("r").get_type() != rclcpp::PARAMETER_DOUBLE) {
-        RCLCPP_ERROR(this->get_logger(), "r type must be double");
-        return CallbackReturn::FAILURE;
-    }
     this->r = this->get_parameter("r").as_double();
 
     this->mecanum_kinematics = std::make_shared<gary_chassis::MecanumKinematics>(this->a, this->b, this->r);
