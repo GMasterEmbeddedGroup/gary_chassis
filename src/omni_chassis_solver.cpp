@@ -357,19 +357,19 @@ void OmniChassisSolver::cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg) {
     //publish the needed motor msg
     if (wheel_speed.count("left_front") == 1) {
         data.data = wheel_speed["left_front"];
-        this->lf_publisher->publish(data);
+        if (this->lf_publisher->is_activated()) this->lf_publisher->publish(data);
     }
     if (wheel_speed.count("left_back") == 1) {
         data.data = wheel_speed["left_back"];
-        this->lb_publisher->publish(data);
+        if (this->lb_publisher->is_activated()) this->lb_publisher->publish(data);
     }
     if (wheel_speed.count("right_front") == 1) {
         data.data = wheel_speed["right_front"];
-        this->rf_publisher->publish(data);
+        if (this->rf_publisher->is_activated()) this->rf_publisher->publish(data);
     }
     if (wheel_speed.count("right_back") == 1) {
         data.data = wheel_speed["right_back"];
-        this->rb_publisher->publish(data);
+        if (this->rb_publisher->is_activated()) this->rb_publisher->publish(data);
     }
     //this->omni_odom_publisher->publish(omni_odom_data);
     //omni_last_time = omni_current_time;
