@@ -105,6 +105,44 @@ ament_target_dependencies(
 rclcpp_components_register_nodes(chassis_teleop_lib "gary_chassis::ChassisTeleop")
 
 
+add_executable(chassis_autonomous src/chassis_autonomous.cpp src/utils/first_order_filter.cpp)
+
+target_include_directories(chassis_autonomous PRIVATE include)
+
+ament_target_dependencies(
+        chassis_autonomous
+        rclcpp
+        diagnostic_msgs
+        lifecycle_msgs
+        rclcpp_lifecycle
+        rclcpp_components
+        gary_msgs
+        geometry_msgs
+        control_msgs
+        nav_msgs
+)
+
+
+add_library(chassis_autonomous_lib SHARED src/chassis_autonomous.cpp src/utils/first_order_filter.cpp)
+
+target_include_directories(chassis_autonomous_lib PRIVATE include)
+
+ament_target_dependencies(
+        chassis_autonomous_lib
+        rclcpp
+        diagnostic_msgs
+        lifecycle_msgs
+        rclcpp_lifecycle
+        rclcpp_components
+        control_msgs
+        gary_msgs
+        geometry_msgs
+        nav_msgs
+)
+
+rclcpp_components_register_nodes(chassis_autonomous_lib "gary_chassis::ChassisAutonomous")
+
+
 add_executable(chassis_power_control src/chassis_power_control.cpp)
 
 target_include_directories(chassis_power_control PRIVATE include)
@@ -221,11 +259,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS mecanum_chassis_solver chassis_teleop chassis_power_control omni_chassis_solver omni_odom
+install(TARGETS mecanum_chassis_solver chassis_teleop chassis_autonomous chassis_power_control omni_chassis_solver omni_odom
         DESTINATION lib/${PROJECT_NAME}
         )
 
-install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib chassis_power_control_lib omni_chassis_solver_lib omni_odom_lib
+install(TARGETS mecanum_chassis_solver_lib chassis_teleop_lib chassis_autonomous_lib chassis_power_control_lib omni_chassis_solver_lib omni_odom_lib
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
