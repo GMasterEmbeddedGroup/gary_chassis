@@ -1,3 +1,4 @@
+
 #include "gary_chsssis/chassis_autonomous.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
@@ -69,6 +70,15 @@ CallbackReturn ChassisAutonomous::on_configure(const rclcpp_lifecycle::State &pr
             std::bind(&ChassisAutonomous::odom_callback, this, std::placeholders::_1), sub_options);
     this->odom_timestamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
+    this->robot_status_subscriber = this->create_subscription<gary_msgs::msg::RobotStatus>(
+            "/referee/robot_status", rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisAutonomous::robot_status_callback, this, std::placeholders::_1), sub_options);
+
+    this->game_status_subscriber = this->create_subscription<gary_msgs::msg::GameStatus>(
+            "/referee/game_status", rclcpp::SystemDefaultsQoS(),
+            std::bind(&ChassisAutonomous::game_status_callback, this, std::placeholders::_1), sub_options);
+
+
     RCLCPP_INFO(this->get_logger(), "configured");
 
     return CallbackReturn::SUCCESS;
@@ -81,6 +91,7 @@ CallbackReturn ChassisAutonomous::on_cleanup(const rclcpp_lifecycle::State &prev
     this->twist_publisher.reset();
     this->rc_subscriber.reset();
     this->odom_subscriber.reset();
+    this->robot_status_subscriber.reset();
     this->x_filter.reset();
     this->y_filter.reset();
     this->a_filter.reset();
@@ -126,6 +137,7 @@ CallbackReturn ChassisAutonomous::on_shutdown(const rclcpp_lifecycle::State &pre
     if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->odom_subscriber.get() != nullptr) this->odom_subscriber.reset();
+    if (this->robot_status_subscriber.get() != nullptr) this->robot_status_subscriber.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
     if (this->a_filter != nullptr) this->a_filter.reset();
@@ -143,6 +155,7 @@ CallbackReturn ChassisAutonomous::on_error(const rclcpp_lifecycle::State &previo
     if (this->twist_publisher.get() != nullptr) this->twist_publisher.reset();
     if (this->rc_subscriber.get() != nullptr) this->rc_subscriber.reset();
     if (this->odom_subscriber.get() != nullptr) this->odom_subscriber.reset();
+    if (this->robot_status_subscriber.get() != nullptr) this->robot_status_subscriber.reset();
     if (this->x_filter != nullptr) this->x_filter.reset();
     if (this->y_filter != nullptr) this->y_filter.reset();
     if (this->a_filter != nullptr) this->a_filter.reset();
@@ -165,6 +178,18 @@ void ChassisAutonomous::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg) {
     this->odom_timestamp = this->get_clock()->now();
 }
 
+void ChassisAutonomous::robot_status_callback(gary_msgs::msg::RobotStatus::SharedPtr msg) {
+    this->max_hp = msg->max_hp;
+    this->remain_hp = msg->remain_hp;
+}
+
+void ChassisAutonomous::game_status_callback(gary_msgs::msg::GameStatus::SharedPtr msg) {
+    if (msg->game_progress == msg->PROGRESS_BATTLE) {
+        this->game_started = true;
+        RCLCPP_INFO_ONCE(this->get_logger(), "game started");
+    }
+}
+
 void ChassisAutonomous::update() {
 
     rclcpp::Time time_now = this->get_clock()->now();
@@ -173,7 +198,7 @@ void ChassisAutonomous::update() {
     bool odom_available = (time_now - this->odom_timestamp).seconds() <= 0.5;
 
 
-    if (rc_available && odom_available) {
+    if (rc_available) {
         geometry_msgs::msg::Twist twist;
 
         double rc_vx_set, rc_vy_set, rc_az_set;
@@ -183,15 +208,16 @@ void ChassisAutonomous::update() {
         rc_az_set = -this->rc.ch_wheel * rotate_max_speed;
 
         double vx_set, vy_set, az_set;
-        double x_err = x_set - this->odom.pose.pose.position.x;
+        double x_err = (x_set - this->odom.pose.pose.position.x) * 2.0f;
         if (x_err > this->x_max_speed) x_err = this->x_max_speed;
         if (x_err < - this->x_max_speed) x_err = - this->x_max_speed;
 
-        double y_err = y_set - this->odom.pose.pose.position.y;
+        double y_err = (y_set - this->odom.pose.pose.position.y) * 2.0f;
         if (y_err > this->y_max_speed) y_err = this->y_max_speed;
         if (y_err < - this->y_max_speed) y_err = - this->y_max_speed;
 
-        this->on_position = fabs(x_err) < 0.05 && fabs(y_err) < 0.05;
+        this->on_position = fabs(x_err) < this->error_threshold && fabs(y_err) < this->error_threshold;
+        if (this->z_set != 0) this->on_position = true;
 
         vx_set = y_err;
         vy_set = -x_err;
@@ -223,11 +249,11 @@ void ChassisAutonomous::update() {
             twist.linear.x = rc_vx_set;
             twist.linear.y = rc_vy_set;
             twist.angular.z = rc_az_set;
-        } else if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
-            if(az_set == 0) {
+        } else if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_UP && odom_available) {
+            if(az_set <= 2.0f) {
                 twist.linear.x = gimbal_vx;
                 twist.linear.y = gimbal_vy;
-                twist.angular.z = 0.0f;
+                twist.angular.z = az_set;
             } else {
                 twist.linear.x = 0.0f;
                 twist.linear.y = 0.0f;
@@ -238,7 +264,7 @@ void ChassisAutonomous::update() {
         this->twist_publisher->publish(twist);
 
         rclcpp::Clock clock;
-//        RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1000, "x %f y %f yaw %f onpos %d", this->odom.pose.pose.position.x, this->odom.pose.pose.position.y, yaw, this->on_position);
+        RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1000, "x %f y %f yaw %f threshold %f onpos %d", this->odom.pose.pose.position.x, this->odom.pose.pose.position.y, yaw, this->error_threshold, this->on_position);
     }
 }
 
@@ -248,7 +274,7 @@ void ChassisAutonomous::decision() {
     bool rc_available = (time_now - this->rc_timestamp).seconds() <= 0.5;
     bool odom_available = (time_now - this->odom_timestamp).seconds() <= 0.5;
 
-    static int stage = 0;
+    static int stage = 1;
     static float last_rc = 0.0f;
     static double x_set_temp, y_set_temp;
 
@@ -261,33 +287,23 @@ void ChassisAutonomous::decision() {
                 stage++;
                 switch (stage) {
                     case 0: {
-                        x_set_temp = 0.0f;
-                        y_set_temp = 0.0f;
+                        x_set_temp = -4.2f;
+                        y_set_temp = -2.4f;
                         break;
                     }
                     case 1: {
-                        x_set_temp = 2.7f;
-                        y_set_temp = 2.7f;
+                        x_set_temp = 0.0f;
+                        y_set_temp = 0.0f;
                         break;
                     }
                     case 2: {
                         x_set_temp = 2.7f;
-                        y_set_temp = 6.0f;
+                        y_set_temp = 2.7f;
                         break;
                     }
                     case 3: {
                         x_set_temp = 2.7f;
-                        y_set_temp = 2.7f;
-                        break;
-                    }
-                    case 4: {
-                        x_set_temp = 0.0f;
-                        y_set_temp = 0.0f;
-                        break;
-                    }
-                    case 5: {
-                        x_set_temp = -4.2f;
-                        y_set_temp = -2.4f;
+                        y_set_temp = 6.0f;
                         break;
                     }
                     default: {
@@ -308,11 +324,92 @@ void ChassisAutonomous::decision() {
                     this->y_set = y_set_temp;
                 }
             } else {
+                if (!this->game_started) return;
                 if (this->on_position) {
-                    this->z_set = this->rotate_max_speed;
+                    if (this->remain_hp < 500) {
+                        if (stage > 0) {
+                            this->z_set = 0.0f;
+                            this->error_threshold = 0.1;
+                            stage--;
+                        } else{
+                            this->z_set = this->rotate_max_speed;
+                            this-> error_threshold = 1.0;
+                        }
+
+                        switch (stage) {
+                            case 0: {
+                                x_set_temp = -4.2f;
+                                y_set_temp = -2.4f;
+                                break;
+                            }
+                            case 1: {
+                                x_set_temp = 0.0f;
+                                y_set_temp = 0.0f;
+                                break;
+                            }
+                            case 2: {
+                                x_set_temp = 2.7f;
+                                y_set_temp = 2.7f;
+                                break;
+                            }
+                            case 3: {
+                                x_set_temp = 2.7f;
+                                y_set_temp = 6.0f;
+                                break;
+                            }
+                            default: {
+                                x_set_temp = 0.0f;
+                                y_set_temp = 0.0f;
+                                stage = 0;
+                            }
+                        }
+                        this->decision_timestamp = this->get_clock()->now();
+                        RCLCPP_INFO(this->get_logger(), "new goal: x %f y %f", this->x_set, this->y_set);
+                    } else {
+                        if (stage < 3) {
+                            this->z_set = 0.0f;
+                            this->error_threshold = 0.1;
+                            stage++;
+                        } else {
+                            this->z_set = this->rotate_max_speed;
+                            this->error_threshold = 1.0;
+                        }
+
+                        switch (stage) {
+                            case 0: {
+                                x_set_temp = -4.2f;
+                                y_set_temp = -2.4f;
+                                break;
+                            }
+                            case 1: {
+                                x_set_temp = 0.0f;
+                                y_set_temp = 0.0f;
+                                break;
+                            }
+                            case 2: {
+                                x_set_temp = 2.7f;
+                                y_set_temp = 2.7f;
+                                break;
+                            }
+                            case 3: {
+                                x_set_temp = 2.7f;
+                                y_set_temp = 6.0f;
+                                break;
+                            }
+                            default: {
+                                x_set_temp = 0.0f;
+                                y_set_temp = 0.0f;
+                                stage = 0;
+                            }
+                        }
+                        this->decision_timestamp = this->get_clock()->now();
+                        RCLCPP_INFO(this->get_logger(), "new goal: x %f y %f", this->x_set, this->y_set);
+                    }
                 }
             }
 
+            rclcpp::Clock clock;
+            RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1000, "stage %d", stage);
         }
     }
 }

@@ -4,6 +4,8 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "gary_msgs/msg/dr16_receiver.hpp"
 #include "gary_msgs/msg/pid.hpp"
+#include "gary_msgs/msg/robot_status.hpp"
+#include "gary_msgs/msg/game_status.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "utils/first_order_filter.hpp"
 #include "control_msgs/msg/dynamic_joint_state.hpp"
@@ -39,6 +41,8 @@ namespace gary_chassis {
         //callbacks
         void rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg);
         void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
+        void robot_status_callback(gary_msgs::msg::RobotStatus::SharedPtr msg);
+        void game_status_callback(gary_msgs::msg::GameStatus::SharedPtr msg);
         void update();
         void decision();
 
@@ -58,6 +62,8 @@ namespace gary_chassis {
         //subscriber
         rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
         rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
+        rclcpp::Subscription<gary_msgs::msg::RobotStatus>::SharedPtr robot_status_subscriber;
+        rclcpp::Subscription<gary_msgs::msg::GameStatus>::SharedPtr game_status_subscriber;
 
         //timer
         rclcpp::TimerBase::SharedPtr timer_update;
@@ -79,6 +85,10 @@ namespace gary_chassis {
         double x_set{};
         double y_set{};
         double z_set{};
-        bool on_position{};
+        bool on_position = false;
+        double max_hp{600};
+        double remain_hp{600};
+        bool game_started = false;
+        double error_threshold = 0.1;
     };
 }

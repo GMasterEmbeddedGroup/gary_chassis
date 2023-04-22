@@ -13,8 +13,8 @@ ChassisPowerControl::ChassisPowerControl(const rclcpp::NodeOptions &options) : r
     this->declare_parameter("twist_sub_topic", "/cmd_vel");
     this->declare_parameter("power_heat_topic", "/referee/power_heat");
     this->declare_parameter("robot_status_topic", "/referee/robot_status");
-    this->declare_parameter("buffer_control_level", 150.0f);
-    this->declare_parameter("buffer_min_level", 50.0f);
+    this->declare_parameter("buffer_control_level", 50.0f);
+    this->declare_parameter("buffer_min_level", 10.0f);
 }
 
 CallbackReturn ChassisPowerControl::on_configure(const rclcpp_lifecycle::State &previous_state) {
@@ -52,6 +52,8 @@ CallbackReturn ChassisPowerControl::on_configure(const rclcpp_lifecycle::State &
 
     //get buffer_min_level
     this->buffer_min_level = this->get_parameter("buffer_min_level").as_double();
+
+    this->scale_factor = 1.0f;
 
     RCLCPP_INFO(this->get_logger(), "configured");
 
