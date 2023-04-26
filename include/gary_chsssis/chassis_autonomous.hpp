@@ -90,5 +90,6 @@ namespace gary_chassis {
         double remain_hp{600};
         bool game_started = false;
         double error_threshold = 0.1;
+        bool custom = false;
     };
 }

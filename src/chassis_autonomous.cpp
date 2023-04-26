@@ -283,12 +283,16 @@ void ChassisAutonomous::decision() {
             return;
         } else if(this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
 
+            if (this->rc.ch_wheel == -1.0) this->custom = true;
+
             if (this->rc.ch_wheel != 0 && last_rc == 0.0f) {
-                stage++;
+                if (this->rc.ch_wheel < 0) stage++;
+                if (this->rc.ch_wheel > 0) stage--;
+
                 switch (stage) {
                     case 0: {
-                        x_set_temp = -4.2f;
-                        y_set_temp = -2.4f;
+                        x_set_temp = 4.0f;
+                        y_set_temp = 2.2f;
                         break;
                     }
                     case 1: {
@@ -297,13 +301,13 @@ void ChassisAutonomous::decision() {
                         break;
                     }
                     case 2: {
-                        x_set_temp = 2.7f;
-                        y_set_temp = 2.7f;
+                        x_set_temp = -2.7f;
+                        y_set_temp = -2.7f;
                         break;
                     }
                     case 3: {
-                        x_set_temp = 2.7f;
-                        y_set_temp = 6.0f;
+                        x_set_temp = -2.7f;
+                        y_set_temp = -5.5f;
                         break;
                     }
                     default: {
@@ -326,10 +330,10 @@ void ChassisAutonomous::decision() {
             } else {
                 if (!this->game_started) return;
                 if (this->on_position) {
-                    if (this->remain_hp < 500) {
+                    if (this->remain_hp < 400) {
                         if (stage > 0) {
                             this->z_set = 0.0f;
-                            this->error_threshold = 0.1;
+                            this->error_threshold = 0.2;
                             stage--;
                         } else{
                             this->z_set = this->rotate_max_speed;
@@ -338,8 +342,9 @@ void ChassisAutonomous::decision() {
 
                         switch (stage) {
                             case 0: {
-                                x_set_temp = -4.2f;
-                                y_set_temp = -2.4f;
+                                x_set_temp = 4.0f;
+                                y_set_temp = 2.2f;
+                                this->error_threshold = 0.3;
                                 break;
                             }
                             case 1: {
@@ -348,13 +353,13 @@ void ChassisAutonomous::decision() {
                                 break;
                             }
                             case 2: {
-                                x_set_temp = 2.7f;
-                                y_set_temp = 2.7f;
+                                x_set_temp = -2.7f;
+                                y_set_temp = -2.7f;
                                 break;
                             }
                             case 3: {
-                                x_set_temp = 2.7f;
-                                y_set_temp = 6.0f;
+                                x_set_temp = -2.7f;
+                                y_set_temp = -5.5f;
                                 break;
                             }
                             default: {
@@ -366,9 +371,11 @@ void ChassisAutonomous::decision() {
                         this->decision_timestamp = this->get_clock()->now();
                         RCLCPP_INFO(this->get_logger(), "new goal: x %f y %f", this->x_set, this->y_set);
                     } else {
-                        if (stage < 3) {
+                        int tmp = 3;
+                        if (this->custom) tmp = 2;
+                        if (stage < tmp) {
                             this->z_set = 0.0f;
-                            this->error_threshold = 0.1;
+                            this->error_threshold = 0.2;
                             stage++;
                         } else {
                             this->z_set = this->rotate_max_speed;
@@ -377,8 +384,8 @@ void ChassisAutonomous::decision() {
 
                         switch (stage) {
                             case 0: {
-                                x_set_temp = -4.2f;
-                                y_set_temp = -2.4f;
+                                x_set_temp = 4.0f;
+                                y_set_temp = 2.2f;
                                 break;
                             }
                             case 1: {
@@ -387,13 +394,13 @@ void ChassisAutonomous::decision() {
                                 break;
                             }
                             case 2: {
-                                x_set_temp = 2.7f;
-                                y_set_temp = 2.7f;
+                                x_set_temp = -2.7f;
+                                y_set_temp = -2.7f;
                                 break;
                             }
                             case 3: {
-                                x_set_temp = 2.7f;
-                                y_set_temp = 6.0f;
+                                x_set_temp = -2.7f;
+                                y_set_temp = -5.5f;
                                 break;
                             }
                             default: {
