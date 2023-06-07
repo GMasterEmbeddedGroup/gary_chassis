@@ -250,18 +250,12 @@ void ChassisAutonomous::update() {
             twist.linear.y = rc_vy_set;
             twist.angular.z = rc_az_set;
         } else if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_UP && odom_available) {
-            if(az_set <= 2.0f) {
-                twist.linear.x = gimbal_vx;
-                twist.linear.y = gimbal_vy;
-                twist.angular.z = az_set;
-            } else {
-                twist.linear.x = 0.0f;
-                twist.linear.y = 0.0f;
-                twist.angular.z = az_set;
-            }
+            return;
         }
 
-        this->twist_publisher->publish(twist);
+        if(this->rc.sw_right != gary_msgs::msg::DR16Receiver::SW_UP) {
+            this->twist_publisher->publish(twist);
+        }
 
         rclcpp::Clock clock;
         RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1000, "x %f y %f yaw %f threshold %f onpos %d", this->odom.pose.pose.position.x, this->odom.pose.pose.position.y, yaw, this->error_threshold, this->on_position);
@@ -281,142 +275,6 @@ void ChassisAutonomous::decision() {
     if (rc_available && odom_available) {
         if (this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_DOWN) {
             return;
-        } else if(this->rc.sw_right == gary_msgs::msg::DR16Receiver::SW_UP) {
-
-            if (this->rc.ch_wheel == -1.0) this->custom = true;
-
-            if (this->rc.ch_wheel != 0 && last_rc == 0.0f) {
-                if (this->rc.ch_wheel < 0) stage++;
-                if (this->rc.ch_wheel > 0) stage--;
-
-                switch (stage) {
-                    case 0: {
-                        x_set_temp = 4.0f;
-                        y_set_temp = 2.2f;
-                        break;
-                    }
-                    case 1: {
-                        x_set_temp = 0.0f;
-                        y_set_temp = 0.0f;
-                        break;
-                    }
-                    case 2: {
-                        x_set_temp = -2.7f;
-                        y_set_temp = -2.7f;
-                        break;
-                    }
-                    case 3: {
-                        x_set_temp = -2.7f;
-                        y_set_temp = -5.5f;
-                        break;
-                    }
-                    default: {
-                        x_set_temp = 0.0f;
-                        y_set_temp = 0.0f;
-                        stage = 0;
-                    }
-                }
-                this->decision_timestamp = this->get_clock()->now();
-                RCLCPP_INFO(this->get_logger(), "new goal: x %f y %f", this->x_set, this->y_set);
-            }
-            last_rc = this->rc.ch_wheel;
-
-            if (this->x_set != x_set_temp || this->y_set != y_set_temp) {
-                this->z_set = 0.0f;
-                if ((this->get_clock()->now() - this->decision_timestamp).seconds() > 2.0f) {
-                    this->x_set = x_set_temp;
-                    this->y_set = y_set_temp;
-                }
-            } else {
-                if (!this->game_started) return;
-                if (this->on_position) {
-                    if (this->remain_hp < 400) {
-                        if (stage > 0) {
-                            this->z_set = 0.0f;
-                            this->error_threshold = 0.2;
-                            stage--;
-                        } else{
-                            this->z_set = this->rotate_max_speed;
-                            this-> error_threshold = 1.0;
-                        }
-
-                        switch (stage) {
-                            case 0: {
-                                x_set_temp = 4.0f;
-                                y_set_temp = 2.2f;
-                                this->error_threshold = 0.3;
-                                break;
-                            }
-                            case 1: {
-                                x_set_temp = 0.0f;
-                                y_set_temp = 0.0f;
-                                break;
-                            }
-                            case 2: {
-                                x_set_temp = -2.7f;
-                                y_set_temp = -2.7f;
-                                break;
-                            }
-                            case 3: {
-                                x_set_temp = -2.7f;
-                                y_set_temp = -5.5f;
-                                break;
-                            }
-                            default: {
-                                x_set_temp = 0.0f;
-                                y_set_temp = 0.0f;
-                                stage = 0;
-                            }
-                        }
-                        this->decision_timestamp = this->get_clock()->now();
-                        RCLCPP_INFO(this->get_logger(), "new goal: x %f y %f", this->x_set, this->y_set);
-                    } else {
-                        int tmp = 3;
-                        if (this->custom) tmp = 2;
-                        if (stage < tmp) {
-                            this->z_set = 0.0f;
-                            this->error_threshold = 0.2;
-                            stage++;
-                        } else {
-                            this->z_set = this->rotate_max_speed;
-                            this->error_threshold = 1.0;
-                        }
-
-                        switch (stage) {
-                            case 0: {
-                                x_set_temp = 4.0f;
-                                y_set_temp = 2.2f;
-                                break;
-                            }
-                            case 1: {
-                                x_set_temp = 0.0f;
-                                y_set_temp = 0.0f;
-                                break;
-                            }
-                            case 2: {
-                                x_set_temp = -2.7f;
-                                y_set_temp = -2.7f;
-                                break;
-                            }
-                            case 3: {
-                                x_set_temp = -2.7f;
-                                y_set_temp = -5.5f;
-                                break;
-                            }
-                            default: {
-                                x_set_temp = 0.0f;
-                                y_set_temp = 0.0f;
-                                stage = 0;
-                            }
-                        }
-                        this->decision_timestamp = this->get_clock()->now();
-                        RCLCPP_INFO(this->get_logger(), "new goal: x %f y %f", this->x_set, this->y_set);
-                    }
-                }
-            }
-
-            rclcpp::Clock clock;
-            RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1000, "stage %d", stage);
         }
     }
 }
