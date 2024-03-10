@@ -4,6 +4,9 @@
 #include "gary_msgs/msg/robot_status.hpp"
 #include "gary_msgs/msg/power_heat.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include <string>
+#include <cmath>
+#include <algorithm>
 
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;

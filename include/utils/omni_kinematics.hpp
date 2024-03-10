@@ -1,7 +1,10 @@
 #pragma once
 
 #include <map>
-#include <tgmath.h>
+#include <string>
+#include <cmath>
+#include <algorithm>
+#include <ctgmath>
 namespace gary_chassis{
 
     enum wheel_offline_e{

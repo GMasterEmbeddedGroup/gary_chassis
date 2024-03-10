@@ -1,6 +1,9 @@
 #pragma once
 
 #include <map>
+#include <string>
+#include <cmath>
+#include <algorithm>
 
 namespace gary_chassis{
 

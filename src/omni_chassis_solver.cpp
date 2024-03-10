@@ -10,17 +10,17 @@ OmniChassisSolver::OmniChassisSolver(const rclcpp::NodeOptions &options) :
     this->declare_parameter("diagnostic_topic", "/diagnostics_agg");
     this->declare_parameter("odom_topic", "/odom");
     this->declare_parameter("joint_topic", "/dynamic_joint_states");
-    this->declare_parameter("output_lf_topic");
-    this->declare_parameter("output_lb_topic");
-    this->declare_parameter("output_rf_topic");
-    this->declare_parameter("output_rb_topic");
-    this->declare_parameter("motor_lf_hw_id");
-    this->declare_parameter("motor_lb_hw_id");
-    this->declare_parameter("motor_rf_hw_id");
-    this->declare_parameter("motor_rb_hw_id");
-    this->declare_parameter("a");
-    this->declare_parameter("b");
-    this->declare_parameter("r");
+    this->declare_parameter("output_lf_topic","");
+    this->declare_parameter("output_lb_topic","");
+    this->declare_parameter("output_rf_topic","");
+    this->declare_parameter("output_rb_topic","");
+    this->declare_parameter("motor_lf_hw_id","");
+    this->declare_parameter("motor_lb_hw_id","");
+    this->declare_parameter("motor_rf_hw_id","");
+    this->declare_parameter("motor_rb_hw_id","");
+    this->declare_parameter("a",0.0);
+    this->declare_parameter("b",0.0);
+    this->declare_parameter("r",0.0);
 }
 
 CallbackReturn OmniChassisSolver::on_configure(const rclcpp_lifecycle::State &previous_state) {

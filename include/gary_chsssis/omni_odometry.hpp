@@ -5,7 +5,9 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "utils/omni_kinematics.hpp"
+#include <string>
 #include <cmath>
+#include <algorithm>
 
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;

@@ -7,6 +7,10 @@
 #include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "diagnostic_msgs//msg/diagnostic_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include <string>
+#include <cmath>
+#include <algorithm>
+
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 

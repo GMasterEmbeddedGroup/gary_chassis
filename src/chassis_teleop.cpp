@@ -14,7 +14,7 @@ ChassisTeleop::ChassisTeleop(const rclcpp::NodeOptions &options) : rclcpp_lifecy
     this->declare_parameter("joint_topic", "/dynamic_joint_states");
     this->declare_parameter("gimbal_follow_set_topic", "/gimbal_follow_pid/cmd");
     this->declare_parameter("gimbal_follow_fdb_topic", "/gimbal_follow_pid/pid");
-    this->declare_parameter("motor_yaw_hw_id");
+    this->declare_parameter("motor_yaw_hw_id","");
     this->declare_parameter("x_max_speed", 2.0f);
     this->declare_parameter("y_max_speed", 2.0f);
     this->declare_parameter("rotate_max_speed", 1.0f);
