@@ -2,20 +2,21 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "std_msgs/msg/float64.hpp"
-#include "utils/mecanum_kinematics.hpp"
 #include "control_msgs/msg/dynamic_joint_state.hpp"
+#include "std_msgs/msg/float64.hpp"
+#include "utils/omni_kinematics.hpp"
 #include "diagnostic_msgs//msg/diagnostic_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+
 
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 namespace gary_chassis {
 
-    class MecanumChassisSolver : public rclcpp_lifecycle::LifecycleNode {
+    class OmniChassisSolver : public rclcpp_lifecycle::LifecycleNode {
 
     public:
-        explicit MecanumChassisSolver(const rclcpp::NodeOptions & options);
+        explicit OmniChassisSolver(const rclcpp::NodeOptions & options);
 
     private:
         CallbackReturn on_configure(const rclcpp_lifecycle::State & previous_state) override;
@@ -28,15 +29,15 @@ namespace gary_chassis {
         //callback group
         rclcpp::CallbackGroup::SharedPtr cb_group;
 
-        //callbacks
+        //callback
         void cmd_callback(geometry_msgs::msg::Twist::SharedPtr msg);
         void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
         void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr joint_state);
 
-        //param
+        //params
+        std::string omni_odom_topic;
         std::string cmd_topic;
         std::string diagnostic_topic;
-        std::string odom_topic;
         std::string output_lf_topic;
         std::string output_lb_topic;
         std::string output_rf_topic;
@@ -58,9 +59,7 @@ namespace gary_chassis {
         double a;
         double b;
         double r;
-
-        //time log
-        rclcpp::Time current_time,last_time;
+        rclcpp::Time omni_current_time,omni_last_time;
 
         //subscriber
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscriber;
@@ -68,13 +67,13 @@ namespace gary_chassis {
         rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_sub;
 
         //publisher
-        rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;
+        rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr omni_odom_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lf_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr lb_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr rf_publisher;
         rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr rb_publisher;
 
-        std::shared_ptr<gary_chassis::MecanumKinematics> mecanum_kinematics;
+        std::shared_ptr<gary_chassis::OmniKinematics> omni_kinematics;
 
         diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
     };

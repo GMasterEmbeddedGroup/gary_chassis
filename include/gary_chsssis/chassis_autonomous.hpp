@@ -4,9 +4,12 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "gary_msgs/msg/dr16_receiver.hpp"
 #include "gary_msgs/msg/pid.hpp"
+#include "gary_msgs/msg/robot_status.hpp"
+#include "gary_msgs/msg/game_status.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "utils/first_order_filter.hpp"
 #include "control_msgs/msg/dynamic_joint_state.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include <cmath>
 
 
@@ -14,17 +17,10 @@ using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface
 
 namespace gary_chassis {
 
-    enum chassis_mode_e {
-        CHASSIS_MODE_ZERO_FORCE,
-        CHASSIS_MODE_NORMAL,
-        CHASSIS_MODE_FOLLOW_GIMBAL,
-        CHASSIS_MODE_SPIN,
-    };
-
-    class ChassisTeleop : public rclcpp_lifecycle::LifecycleNode {
+    class ChassisAutonomous : public rclcpp_lifecycle::LifecycleNode {
 
     public:
-        explicit ChassisTeleop(const rclcpp::NodeOptions &options);
+        explicit ChassisAutonomous(const rclcpp::NodeOptions &options);
 
     private:
         CallbackReturn on_configure(const rclcpp_lifecycle::State &previous_state) override;
@@ -44,56 +40,56 @@ namespace gary_chassis {
 
         //callbacks
         void rc_callback(gary_msgs::msg::DR16Receiver::SharedPtr msg);
-        void joint_callback(control_msgs::msg::DynamicJointState::SharedPtr msg);
-        void diag_callback(diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
-        void gimbal_follow_callback(gary_msgs::msg::PID::SharedPtr msg);
+        void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
+        void robot_status_callback(gary_msgs::msg::RobotStatus::SharedPtr msg);
+        void game_status_callback(gary_msgs::msg::GameStatus::SharedPtr msg);
         void update();
+        void decision();
 
         //params
         std::string twist_pub_topic;
         std::string remote_control_topic;
-        std::string diagnostic_topic;
-        std::string motor_yaw_hw_id;
-        std::string joint_topic;
-        std::string gimbal_follow_set_topic;
-        std::string gimbal_follow_fdb_topic;
         double x_max_speed{};
         double y_max_speed{};
         double rotate_max_speed{};
         double x_max_accel{};
         double y_max_accel{};
-        bool use_break{};
         double update_rate{};
-        double yaw_encoder_bias{};
 
         //publisher
         rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr twist_publisher;
-        rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>::SharedPtr gimbal_follow_set_publisher;
 
         //subscriber
         rclcpp::Subscription<gary_msgs::msg::DR16Receiver>::SharedPtr rc_subscriber;
-        rclcpp::Subscription<control_msgs::msg::DynamicJointState>::SharedPtr joint_subscriber;
-        rclcpp::Subscription<gary_msgs::msg::PID>::SharedPtr gimbal_follow_sub;
-        rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_subscriber;
+        rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
+        rclcpp::Subscription<gary_msgs::msg::RobotStatus>::SharedPtr robot_status_subscriber;
+        rclcpp::Subscription<gary_msgs::msg::GameStatus>::SharedPtr game_status_subscriber;
 
         //timer
         rclcpp::TimerBase::SharedPtr timer_update;
+        rclcpp::TimerBase::SharedPtr timer_decision;
 
         //filter
         std::shared_ptr<gary_chassis::First_orderFilter> x_filter;
         std::shared_ptr<gary_chassis::First_orderFilter> y_filter;
+        std::shared_ptr<gary_chassis::First_orderFilter> a_filter;
 
         //msg received and timestamp
         gary_msgs::msg::DR16Receiver rc;
         rclcpp::Time rc_timestamp;
-        control_msgs::msg::DynamicJointState joint_state;
-        rclcpp::Time joint_state_timestamp;
-        gary_msgs::msg::PID gimbal_follow_pid;
-        rclcpp::Time gimbal_follow_pid_timestamp;
-        diagnostic_msgs::msg::DiagnosticArray diagnostic_array;
+        nav_msgs::msg::Odometry odom;
+        rclcpp::Time odom_timestamp;
 
-        chassis_mode_e chassis_mode{};
-        chassis_mode_e last_chassis_mode{};
-        uint8_t last_sw_state{};
+        rclcpp::Time decision_timestamp;
+
+        double x_set{};
+        double y_set{};
+        double z_set{};
+        bool on_position = false;
+        double max_hp{600};
+        double remain_hp{600};
+        bool game_started = false;
+        double error_threshold = 0.1;
+        bool custom = false;
     };
 }

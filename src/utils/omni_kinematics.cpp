@@ -1,14 +1,14 @@
-#include "utils/mecanum_kinematics.hpp"
+#include "utils/omni_kinematics.hpp"
 
 using namespace gary_chassis;
 
-MecanumKinematics::MecanumKinematics(double a, double b, double r) {
+OmniKinematics::OmniKinematics(double a, double b, double r) {
     this->a = a;
     this->b = b;
     this->r = r;
 }
 
-std::map<std::string, double> MecanumKinematics::forward_solve(const std::map<std::string, double>& wheel_speed,
+std::map<std::string, double> OmniKinematics::forward_solve(const std::map<std::string, double>& wheel_speed,
                                                                wheel_offline_e wheel_offline) const {
     std::map<std::string, double> chassis_speed;
 
@@ -17,10 +17,9 @@ std::map<std::string, double> MecanumKinematics::forward_solve(const std::map<st
     double rf = wheel_speed.at("right_front");
     double rb = wheel_speed.at("right_back");
 
-    double vx = (-rf + lf + lb - rb) / 4 * this->r;
-    double vy = (-rf - lf + lb + rb) / 4 * this->r;
-    double az = (-rf - lf - lb - rb) / 4 / (this->a + this->b);
-
+    double vx = (-rf + lf + lb - rb) / 4 * this->r /sqrt(2);
+    double vy = (-rf - lf + lb + rb) / 4 * this->r /sqrt(2);
+    double az = (-rf - lf - lb - rb) / 2 * this->r / (this->a + this->b);
 
     chassis_speed.insert(std::make_pair("vx", vx));
     chassis_speed.insert(std::make_pair("vy", vy));
@@ -29,19 +28,18 @@ std::map<std::string, double> MecanumKinematics::forward_solve(const std::map<st
     return chassis_speed;
 }
 
-std::map<std::string, double> MecanumKinematics::inverse_solve(const std::map<std::string, double>& chassis_speed,
+std::map<std::string, double> OmniKinematics::inverse_solve(const std::map<std::string, double>& chassis_speed,
                                                                wheel_offline_e wheel_offline) const {
     std::map<std::string, double> wheel_speed;
-
     double vx = chassis_speed.at("vx");
     double vy = chassis_speed.at("vy");
     double az = chassis_speed.at("az");
-
     if (wheel_offline == WHEEL_OFFLINE_NONE) {
-        double rf = (- vx - vy + az * (a + b)) / this->r;
-        double lf = (+ vx - vy + az * (a + b)) / this->r;
-        double lb = (+ vx + vy + az * (a + b)) / this->r;
-        double rb = (- vx + vy + az * (a + b)) / this->r;
+        double rf = (- vx * sqrt(2)/2 - vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
+        double lf = (+ vx * sqrt(2)/2 - vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
+        double lb = (+ vx * sqrt(2)/2 + vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
+        double rb = (- vx * sqrt(2)/2 + vy * sqrt(2)/2 + az * (a + b)/2) / this->r;
+
         wheel_speed.insert(std::make_pair("right_front", rf));
         wheel_speed.insert(std::make_pair("left_front", lf));
         wheel_speed.insert(std::make_pair("left_back", lb));
